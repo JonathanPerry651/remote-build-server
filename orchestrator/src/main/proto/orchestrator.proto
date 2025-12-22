@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package rbs;
+
+option java_multiple_files = true;
+option java_package = "com.example.rbs.proto";
+option java_outer_classname = "OrchestratorProto";
+
+service Orchestrator {
+  rpc GetServer (GetServerRequest) returns (GetServerResponse) {}
+}
+
+message GetServerRequest {
+  string user_id = 1;
+  string repo_hash = 2;
+  string session_id = 3;
+}
+
+message GetServerResponse {
+  string pod_ip = 1;
+  string status = 2;
+}
