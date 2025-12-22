@@ -57,12 +57,11 @@ To ensure hermetic and fast builds, RBS leverages Google Cloud Filestore (Enterp
 
 ### Workflow
 1.  **Provisioning**: When a user connects, the Orchestrator ensures a persistent volume (PVC) backed by Filestore is available for that user or session.
-2.  **Mounting**: The `KubernetesComputeService` spawns an Agent Pod with the Filestore volume mounted to `/workspace`.
-3.  **Synchronization**: 
-    *   *Initial Sync*: Source code from the developer's machine is synced to the Filestore volume (e.g., via `rsync` or a dedicated sidecar in the Agent Pod).
-    *   *Incremental Sync*: Subsequent changes are sent incrementally to minimize latency.
-4.  **Execution**: The `bazel` process running in the Agent Pod performs all reads/writes against the high-performance Filestore mount.
-5.  **Persistence**: Build caches (bazel-out) can be preserved across sessions within the Filestore volume, speeding up subsequent builds.
+2.  **Shared Mounting**: 
+    *   **Server Side**: The `KubernetesComputeService` spawns an Agent Pod with the Filestore volume mounted.
+    *   **Client Side**: The developer's machine mounts the same Filestore volume (e.g., via NFS), ensuring instant visibility of source code without explicit synchronization steps.
+3.  **Execution**: The `bazel` process running in the Agent Pod performs all reads/writes against the high-performance Filestore mount.
+4.  **Persistence**: Build caches (bazel-out) can be preserved across sessions within the Filestore volume, speeding up subsequent builds.
 
 ### Benefits
 *   **Performance**: Low-latency file operations compared to standard buckets.
@@ -78,6 +77,12 @@ To guarantee multi-tenant security and resource isolation, every build session o
     *   Each namespace contains the user's build Pod(s).
     *   Dedicated `ServiceAccount` and RBAC bindings restricted to that namespace.
     *   Automatic cleanup: Deleting the namespace removes all associated resources.
+
+### Bubblewrap Sandboxing
+To ensure hermetic builds and identical path structures between the client and server:
+*   **Path Mapping**: The agent uses **Bubblewrap** (bwrap) to sandbox the execution environment.
+*   **Virtual Filesystem**: It constructs a virtual filesystem within the container that exactly mirrors the directory structure of the developer's local machine (e.g., mounting the workspace at the exact same absolute path).
+*   **Consistency**: This guarantees that build actions (which may rely on absolute paths) execute identically on the remote server as they would locally.
 
 ### mTLS Everywhere
 All gRPC communications between components are secured using mutual TLS (mTLS).
