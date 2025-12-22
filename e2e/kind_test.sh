@@ -17,7 +17,19 @@ fi
 KIND=$(rlocation kind/file/downloaded)
 KUBECTL=$(rlocation kubectl/file/downloaded)
 # Client binary:
+# Client binary:
 CLIENT=$(rlocation remote-build-server/e2e/e2e_client)
+if [[ ! -f "$CLIENT" ]]; then
+    echo "ERROR: Could not locate e2e_client binary or jar via rlocation"
+    echo "Runfiles contents:"
+    find . -maxdepth 4
+    exit 1
+fi
+
+# Ensure executable if it's a script/binary
+if [[ "$CLIENT" != *.jar ]]; then
+    chmod +x "$CLIENT"
+fi
 
 # Artifacts
 ORCHESTRATOR_TAR=$(rlocation remote-build-server/orchestrator/tarball.tar)
@@ -30,10 +42,19 @@ chmod +x "$KIND" "$KUBECTL"
 
 CLUSTER_NAME="rbs-e2e"
 
-cleanup() {
-  echo "Cleaning up..."
-  "$KUBECTL" --context "kind-$CLUSTER_NAME" logs -l app=orchestrator --all-containers || true
-  "$KIND" delete cluster --name "$CLUSTER_NAME" || true
+# Cleanup function
+function cleanup {
+    echo "Cleaning up..."
+    # Dump logs if we are failing (check for failure indicator or always dump?)
+    # Easiest is to always dump orchestrator logs if they exist
+    echo "--- Orchestrator Logs ---"
+    "$KUBECTL" --context "kind-$CLUSTER_NAME" logs -l app=orchestrator --tail=200 || true
+    echo "--- All Pods ---"
+    "$KUBECTL" --context "kind-$CLUSTER_NAME" get pods --all-namespaces || true
+    echo "--- All Namespaces ---"
+    "$KUBECTL" --context "kind-$CLUSTER_NAME" get namespaces || true
+    
+    "$KIND" delete cluster --name "$CLUSTER_NAME" || true
 }
 trap cleanup EXIT
 
@@ -61,6 +82,11 @@ echo "Kubeconfig exported to $KUBECONFIG"
 echo "Loading orchestrator image..."
 # kind load image-archive requires the tarball
 "$KIND" load image-archive "$ORCHESTRATOR_TAR" --name "$CLUSTER_NAME"
+
+# Load Agent Image
+AGENT_TAR=$(rlocation remote-build-server/agent/tarball.tar)
+echo "Loading agent image..."
+"$KIND" load image-archive "$AGENT_TAR" --name "$CLUSTER_NAME"
 
 # Apply Deployment
 echo "Applying deployment..."

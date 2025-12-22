@@ -22,12 +22,13 @@ sh_test(
     name = "kind_test",
     srcs = ["kind_test.sh"],
     data = [
-        ":e2e_client",
         "//infra:k8s/orchestrator.yaml",
         "//orchestrator:tarball",
-        "@bazel_tools//tools/bash/runfiles",
-        "@kind//file",
+        "//agent:tarball",
         "@kubectl//file",
+        "@kind//file",
+        "@bazel_tools//tools/bash/runfiles",
+        ":e2e_client",
     ],
     tags = [
         "exclusive",

@@ -36,10 +36,12 @@ public class E2eTestClient {
             String podName = "bazel-" + sanitizedUserId + "-" + repoHash;
 
             System.out.println("1. Requesting server for user=" + userId + ", repo=" + repoHash);
+            String sourcePath = "/tmp/workspace"; // Dummy path for E2E
             GetServerRequest request = GetServerRequest.newBuilder()
                     .setUserId(userId)
                     .setRepoHash(repoHash)
                     .setSessionId(sessionId)
+                    .setSourcePath(sourcePath)
                     .build();
 
             GetServerResponse response = stub.getServer(request);
@@ -99,6 +101,7 @@ public class E2eTestClient {
                     .setUserId(userId)
                     .setRepoHash(repoHash)
                     .setSessionId(newSessionId)
+                    .setSourcePath(sourcePath)
                     .build());
 
             System.out.println("Response after session change: Status=" + response.getStatus());

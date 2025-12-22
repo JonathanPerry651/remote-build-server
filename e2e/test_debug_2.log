@@ -1,0 +1,363 @@
+Computing main repo mapping: 
+Loading: 
+Loading: 0 packages loaded
+Analyzing: target //e2e:kind_test (0 packages loaded, 0 targets configured)
+Analyzing: target //e2e:kind_test (0 packages loaded, 0 targets configured)
+
+INFO: Analyzed target //e2e:kind_test (0 packages loaded, 0 targets configured).
+[3 / 4] Testing //e2e:kind_test; 1s local
+[3 / 4] Testing //e2e:kind_test; 131s local
+FAIL: //e2e:kind_test (Exit 1) (see /home/jonathanp/.cache/bazel/_bazel_jonathanp/200565c80f72b60db8e0b0eed20d9845/execroot/_main/bazel-out/k8-fastbuild/testlogs/e2e/kind_test/test.log)
+INFO: From Testing //e2e:kind_test:
+==================== Test output for //e2e:kind_test:
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Creating Kind cluster 'rbs-e2e' with Podman...
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Creating cluster "rbs-e2e" ...
+ • Ensuring node image (kindest/node:v1.27.3) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-rbs-e2e"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-rbs-e2e
+
+Have a nice day! 👋
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Kubeconfig exported to /tmp/tmp.rXm2lBRpKS
+Loading orchestrator image...
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Applying deployment...
+serviceaccount/orchestrator-sa created
+clusterrolebinding.rbac.authorization.k8s.io/orchestrator-admin created
+deployment.apps/orchestrator created
+Waiting for rollout...
+Waiting for deployment spec update to be observed...
+Waiting for deployment spec update to be observed...
+Waiting for deployment "orchestrator" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "orchestrator" rollout to finish: 0 of 1 updated replicas are available...
+deployment "orchestrator" successfully rolled out
+Setting up port forwarding...
+Using local port: 25865
+Forwarding from 127.0.0.1:25865 -> 50051
+Forwarding from [::1]:25865 -> 50051
+Running E2E Client...
+Running E2E Client...
+1. Requesting server for user=test-user-6678091c, repo=repoef8677f2
+Handling connection for 25865
+Response: Status=PENDING, PodIP=
+2. Polling for READY status...
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Exception in thread "main" java.lang.AssertionError: [Orchestrator should eventually report READY] 
+expected: "READY"
+ but was: "PENDING"
+	at com.example.rbs.e2e.E2eTestClient.main(E2eTestClient.java:62)
+Cleaning up...
+--- Orchestrator Logs ---
+Defaulted container "orchestrator" out of: orchestrator, spanner-emulator
+Dec 22, 2025 2:19:52 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:52 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:53 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:53 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:54 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:54 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:55 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:55 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:56 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:56 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:57 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:57 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:58 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:58 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:19:59 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:19:59 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:00 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:01 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:02 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:02 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:03 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:03 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:04 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:04 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:05 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:05 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:06 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:06 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:07 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:07 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:08 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:08 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:09 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:09 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:10 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:10 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:11 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:11 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:12 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:12 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:13 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:13 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:14 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:14 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:15 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:15 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:16 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:16 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:17 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:17 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:18 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:18 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:19 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:19 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:20 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:20 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:21 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:21 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:22 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:22 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:23 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:23 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:24 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:24 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:25 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:25 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:26 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:26 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:27 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:27 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:28 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:28 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:29 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:29 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:30 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:30 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:31 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:31 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:32 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:32 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:33 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:33 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:34 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:34 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:35 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:35 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:36 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:36 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:37 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:37 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:38 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:38 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:39 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:39 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:40 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:40 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:41 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:41 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+Dec 22, 2025 2:20:42 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6678091c, Repo: repoef8677f2 (Source: )
+Dec 22, 2025 2:20:42 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session 9c24000c-6d6b-4b12-a29a-87297175b12b
+--- All Pods ---
+NAMESPACE            NAME                                            READY   STATUS    RESTARTS      AGE
+default              orchestrator-68746dc8f8-fgbl6                   2/2     Running   1 (79s ago)   85s
+kube-system          coredns-5d78c9869d-86pss                        1/1     Running   0             85s
+kube-system          coredns-5d78c9869d-j7zqm                        1/1     Running   0             85s
+kube-system          etcd-rbs-e2e-control-plane                      1/1     Running   0             99s
+kube-system          kindnet-vk26d                                   1/1     Running   0             85s
+kube-system          kube-apiserver-rbs-e2e-control-plane            1/1     Running   0             102s
+kube-system          kube-controller-manager-rbs-e2e-control-plane   1/1     Running   0             99s
+kube-system          kube-proxy-g97v7                                1/1     Running   0             85s
+kube-system          kube-scheduler-rbs-e2e-control-plane            1/1     Running   0             99s
+local-path-storage   local-path-provisioner-6bc4bddd6b-6mtl8         1/1     Running   0             85s
+--- All Namespaces ---
+NAME                                STATUS   AGE
+default                             Active   103s
+kube-node-lease                     Active   103s
+kube-public                         Active   103s
+kube-system                         Active   103s
+local-path-storage                  Active   96s
+testuser6678091c-rbs-repoef8677f2   Active   61s
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Deleting cluster "rbs-e2e" ...
+Deleted nodes: ["rbs-e2e-control-plane"]
+================================================================================
+INFO: Found 1 test target...
+Target //e2e:kind_test up-to-date:
+  bazel-bin/e2e/kind_test
+INFO: Elapsed time: 132.046s, Critical Path: 131.71s
+INFO: 3 processes: 1 action cache hit, 1 internal, 2 local.
+INFO: Build completed, 1 test FAILED, 3 total actions
+//e2e:kind_test                                                          FAILED in 131.7s
+  /home/jonathanp/.cache/bazel/_bazel_jonathanp/200565c80f72b60db8e0b0eed20d9845/execroot/_main/bazel-out/k8-fastbuild/testlogs/e2e/kind_test/test.log
+
+Executed 1 out of 1 test: 1 fails locally.

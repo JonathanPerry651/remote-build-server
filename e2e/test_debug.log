@@ -1,0 +1,161 @@
+Computing main repo mapping: 
+Loading: 
+Loading: 0 packages loaded
+Analyzing: target //e2e:kind_test (0 packages loaded, 0 targets configured)
+Analyzing: target //e2e:kind_test (0 packages loaded, 0 targets configured)
+
+INFO: Analyzed target //e2e:kind_test (0 packages loaded, 0 targets configured).
+[2 / 3] Testing //e2e:kind_test; 1s local
+[2 / 3] Testing //e2e:kind_test; 127s local
+FAIL: //e2e:kind_test (Exit 1) (see /home/jonathanp/.cache/bazel/_bazel_jonathanp/200565c80f72b60db8e0b0eed20d9845/execroot/_main/bazel-out/k8-fastbuild/testlogs/e2e/kind_test/test.log)
+INFO: From Testing //e2e:kind_test:
+==================== Test output for //e2e:kind_test:
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Creating Kind cluster 'rbs-e2e' with Podman...
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Creating cluster "rbs-e2e" ...
+ • Ensuring node image (kindest/node:v1.27.3) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-rbs-e2e"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-rbs-e2e
+
+Have a nice day! 👋
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Kubeconfig exported to /tmp/tmp.2xTmu34w57
+Loading orchestrator image...
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Applying deployment...
+serviceaccount/orchestrator-sa created
+clusterrolebinding.rbac.authorization.k8s.io/orchestrator-admin created
+deployment.apps/orchestrator created
+Waiting for rollout...
+Waiting for deployment spec update to be observed...
+Waiting for deployment spec update to be observed...
+Waiting for deployment "orchestrator" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "orchestrator" rollout to finish: 0 of 1 updated replicas are available...
+deployment "orchestrator" successfully rolled out
+Setting up port forwarding...
+Using local port: 23697
+Forwarding from 127.0.0.1:23697 -> 50051
+Forwarding from [::1]:23697 -> 50051
+Running E2E Client...
+Running E2E Client...
+1. Requesting server for user=test-user-6920a4a3, repo=repo012b6bc0
+Handling connection for 23697
+Response: Status=PENDING, PodIP=
+2. Polling for READY status...
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Polled Status: PENDING, IP=
+Exception in thread "main" java.lang.AssertionError: [Orchestrator should eventually report READY] 
+expected: "READY"
+ but was: "PENDING"
+	at com.example.rbs.e2e.E2eTestClient.main(E2eTestClient.java:62)
+Cleaning up...
+Dec 22, 2025 2:17:23 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session c6b42908-486f-460a-9e8b-672d3bab8a47
+Dec 22, 2025 2:17:24 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6920a4a3, Repo: repo012b6bc0 (Source: )
+Dec 22, 2025 2:17:24 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session c6b42908-486f-460a-9e8b-672d3bab8a47
+Dec 22, 2025 2:17:25 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-6920a4a3, Repo: repo012b6bc0 (Source: )
+Dec 22, 2025 2:17:25 PM com.example.rbs.OrchestratorService checkAndUpdateStatus
+WARNING: Pod missing for session c6b42908-486f-460a-9e8b-672d3bab8a47
+See https://protobuf.dev/reference/go/faq#namespace-conflict
+
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1766412976.001732      19 emulator_main.cc:39] Cloud Spanner Emulator running.
+I0000 00:00:1766412976.001758      19 emulator_main.cc:40] Server address: 0.0.0.0:9010
+2025/12/22 14:16:16 gateway.go:154: Cloud Spanner emulator running.
+2025/12/22 14:16:16 gateway.go:155: REST server listening at 0.0.0.0:9020
+2025/12/22 14:16:16 gateway.go:156: gRPC server listening at 0.0.0.0:9010
+I0000 00:00:1766412985.706935      36 memory.cc:32] reserved_alloc: 8192 TryAdditionalReserve(size) returns true
+I0000 00:00:1766412985.707064      36 memory.cc:32] reserved_alloc: 8192 TryAdditionalReserve(size) returns true
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Deleting cluster "rbs-e2e" ...
+Deleted nodes: ["rbs-e2e-control-plane"]
+================================================================================
+INFO: Found 1 test target...
+Target //e2e:kind_test up-to-date:
+  bazel-bin/e2e/kind_test
+INFO: Elapsed time: 127.850s, Critical Path: 127.31s
+INFO: 2 processes: 2 action cache hit, 2 local.
+INFO: Build completed, 1 test FAILED, 2 total actions
+//e2e:kind_test                                                          FAILED in 127.3s
+  /home/jonathanp/.cache/bazel/_bazel_jonathanp/200565c80f72b60db8e0b0eed20d9845/execroot/_main/bazel-out/k8-fastbuild/testlogs/e2e/kind_test/test.log
+
+Executed 1 out of 1 test: 1 fails locally.

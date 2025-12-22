@@ -73,13 +73,13 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_file(
     name = "kind",
     executable = True,
-    urls = ["https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64"],
+    urls = ["https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64"],
 )
 
 http_file(
     name = "kubectl",
     executable = True,
-    urls = ["https://dl.k8s.io/release/v1.29.0/bin/darwin/arm64/kubectl"],
+    urls = ["https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"],
 )
 
 bazel_dep(name = "rules_oci", version = "1.7.4")

@@ -44,8 +44,8 @@ graph TD
     Filestore -- "NFS Mount (PVC)" --- AgentPod2
     
     %% Execution Flow
-    Client -- "Spawn Process" --> Proxy[Proxy (Server Mode)]
-    Proxy -- "gRPC/Tunnel" --> AgentPod1
+    Client -- "Spawn Process" --> Proxy["Proxy (Server Mode)"]
+    Proxy -- "gRPC (mTLS)" --> AgentPod1
     
     %% Data Sync Idea (Implied)
     Client -.->|Sync Source| Filestore
@@ -68,3 +68,19 @@ To ensure hermetic and fast builds, RBS leverages Google Cloud Filestore (Enterp
 *   **Performance**: Low-latency file operations compared to standard buckets.
 *   **Consistency**: Standard POSIX compliance ensures Bazel behaves exactly as it does on a local disk.
 *   **Persistence**: Workspaces survive pod restarts or rescheduling.
+
+## Security & Isolation
+
+### Namespace Isolation
+To guarantee multi-tenant security and resource isolation, every build session operates within its own dedicated **Kubernetes Namespace**.
+*   **Naming Convention**: `<sanitized_user>-rbs-<hash>`
+*   **Resources**: 
+    *   Each namespace contains the user's build Pod(s).
+    *   Dedicated `ServiceAccount` and RBAC bindings restricted to that namespace.
+    *   Automatic cleanup: Deleting the namespace removes all associated resources.
+
+### mTLS Everywhere
+All gRPC communications between components are secured using mutual TLS (mTLS).
+*   **Client \u2194 Proxy**: Secured via local credentials or Unix sockets.
+*   **Proxy \u2194 Orchestrator**: mTLS with per-user certificates.
+*   **Proxy \u2194 Agent**: mTLS to ensure only the authorized proxy can command the build agent.

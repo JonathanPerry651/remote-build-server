@@ -51,7 +51,7 @@ go_binary(
 )
 
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_tarball")
 
 pkg_tar(
     name = "agent_layer",
@@ -64,5 +64,19 @@ oci_image(
     base = "@distroless_static",
     entrypoint = ["/app/agent"],
     tars = [":agent_layer"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "tarball",
+    srcs = [":image"],
+    outs = ["tarball.tar"],
+    cmd = """
+        mkdir -p image_mod
+        cp -RL $(location :image)/* image_mod/
+        chmod -R u+w image_mod
+        python3 -c "import json; f='image_mod/index.json'; d=json.load(open(f)); d['manifests'][0]['annotations']={'org.opencontainers.image.ref.name':'localhost/agent:latest'}; json.dump(d,open(f,'w'))"
+        tar -C image_mod -cf $@ .
+    """,
     visibility = ["//visibility:public"],
 )

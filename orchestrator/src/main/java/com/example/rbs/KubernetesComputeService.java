@@ -75,7 +75,7 @@ public class KubernetesComputeService implements ComputeService {
             logger.info("Pod creation requested for: " + podName);
         } catch (Exception e) {
             logger.severe("Failed to create pod: " + e.getMessage());
-            // It might already exist?
+            throw new RuntimeException("Failed to create pod: " + e.getMessage(), e);
         }
         return podName; // Returning podName, but caller implies it might expect ID?
         // Actually, existing caller expects a container ID.
@@ -93,7 +93,22 @@ public class KubernetesComputeService implements ComputeService {
         logger.info("Deleting namespace: " + namespace);
         try {
             k8sClient.namespaces().withName(namespace).withGracePeriod(0).delete();
-            // Wait for it to be confirmed deleted
+
+            // Wait for deletion (up to 60 seconds)
+            long deadline = System.currentTimeMillis() + 60000;
+            while (System.currentTimeMillis() < deadline) {
+                if (k8sClient.namespaces().withName(namespace).get() == null) {
+                    logger.info("Namespace " + namespace + " deleted successfully.");
+                    return;
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for namespace deletion");
+                }
+            }
+            logger.warning("Timed out waiting for namespace deletion: " + namespace);
         } catch (Exception e) {
             logger.warning("Error deleting namespace: " + e.getMessage());
         }

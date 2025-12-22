@@ -1,0 +1,116 @@
+Computing main repo mapping: 
+Loading: 
+Loading: 0 packages loaded
+Analyzing: target //e2e:kind_test (0 packages loaded, 0 targets configured)
+Analyzing: target //e2e:kind_test (0 packages loaded, 0 targets configured)
+
+INFO: Analyzed target //e2e:kind_test (0 packages loaded, 0 targets configured).
+[2 / 3] Testing //e2e:kind_test; 1s local
+[2 / 3] Testing //e2e:kind_test; 69s local
+FAIL: //e2e:kind_test (Exit 1) (see /home/jonathanp/.cache/bazel/_bazel_jonathanp/200565c80f72b60db8e0b0eed20d9845/execroot/_main/bazel-out/k8-fastbuild/testlogs/e2e/kind_test/test.log)
+INFO: From Testing //e2e:kind_test:
+==================== Test output for //e2e:kind_test:
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Creating Kind cluster 'rbs-e2e' with Podman...
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Creating cluster "rbs-e2e" ...
+ • Ensuring node image (kindest/node:v1.27.3) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-rbs-e2e"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-rbs-e2e
+
+Have a nice day! 👋
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Kubeconfig exported to /tmp/tmp.OkmuFLS9VJ
+Loading orchestrator image...
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Applying deployment...
+serviceaccount/orchestrator-sa created
+clusterrolebinding.rbac.authorization.k8s.io/orchestrator-admin created
+deployment.apps/orchestrator created
+Waiting for rollout...
+Waiting for deployment spec update to be observed...
+Waiting for deployment spec update to be observed...
+Waiting for deployment "orchestrator" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "orchestrator" rollout to finish: 0 of 1 updated replicas are available...
+deployment "orchestrator" successfully rolled out
+Setting up port forwarding...
+Using local port: 23602
+Forwarding from 127.0.0.1:23602 -> 50051
+Forwarding from [::1]:23602 -> 50051
+Running E2E Client...
+Running E2E Client...
+1. Requesting server for user=test-user-a67d31c1, repo=repofb2fc598
+Handling connection for 23602
+Exception in thread "main" io.grpc.StatusRuntimeException: INTERNAL: Failed to create pod: Failure executing: POST at: https://10.96.0.1:443/api/v1/namespaces/testusera67d31c1-rbs-repofb2fc598/pods. Message: Pod "bazel-server" is invalid: [spec.volumes[0].hostPath.path: Required value, spec.containers[0].volumeMounts[0].name: Not found: "workspace-volume", spec.containers[0].volumeMounts[0].mountPath: Required value]. Received status: Status(apiVersion=v1, code=422, details=StatusDetails(causes=[StatusCause(field=spec.volumes[0].hostPath.path, message=Required value, reason=FieldValueRequired, additionalProperties={}), StatusCause(field=spec.containers[0].volumeMounts[0].name, message=Not found: "workspace-volume", reason=FieldValueNotFound, additionalProperties={}), StatusCause(field=spec.containers[0].volumeMounts[0].mountPath, message=Required value, reason=FieldValueRequired, additionalProperties={})], group=null, kind=Pod, name=bazel-server, retryAfterSeconds=null, uid=null, additionalProperties={}), kind=Status, message=Pod "bazel-server" is invalid: [spec.volumes[0].hostPath.path: Required value, spec.containers[0].volumeMounts[0].name: Not found: "workspace-volume", spec.containers[0].volumeMounts[0].mountPath: Required value], metadata=ListMeta(_continue=null, remainingItemCount=null, resourceVersion=null, selfLink=null, additionalProperties={}), reason=Invalid, status=Failure, additionalProperties={}).
+	at io.grpc.stub.ClientCalls.toStatusRuntimeException(ClientCalls.java:368)
+	at io.grpc.stub.ClientCalls.getUnchecked(ClientCalls.java:349)
+	at io.grpc.stub.ClientCalls.blockingUnaryCall(ClientCalls.java:174)
+	at com.example.rbs.proto.OrchestratorGrpc$OrchestratorBlockingStub.getServer(OrchestratorGrpc.java:196)
+	at com.example.rbs.e2e.E2eTestClient.main(E2eTestClient.java:45)
+Cleaning up...
+--- Orchestrator Logs ---
+Defaulted container "orchestrator" out of: orchestrator, spanner-emulator
+Dec 22, 2025 2:24:40 PM com.example.rbs.OrchestratorServer start
+INFO: Server started, listening on 50051
+Dec 22, 2025 2:24:47 PM com.example.rbs.OrchestratorService getServer
+INFO: Received GetServer request for User: test-user-a67d31c1, Repo: repofb2fc598 (Source: )
+Dec 22, 2025 2:24:47 PM com.example.rbs.KubernetesComputeService createContainer
+INFO: Ensuring namespace: testusera67d31c1-rbs-repofb2fc598
+Dec 22, 2025 2:24:47 PM com.example.rbs.KubernetesComputeService createContainer
+INFO: Creating pod: bazel-server in namespace testusera67d31c1-rbs-repofb2fc598 (source: )
+Dec 22, 2025 2:24:47 PM com.example.rbs.KubernetesComputeService createContainer
+SEVERE: Failed to create pod: Failure executing: POST at: https://10.96.0.1:443/api/v1/namespaces/testusera67d31c1-rbs-repofb2fc598/pods. Message: Pod "bazel-server" is invalid: [spec.volumes[0].hostPath.path: Required value, spec.containers[0].volumeMounts[0].name: Not found: "workspace-volume", spec.containers[0].volumeMounts[0].mountPath: Required value]. Received status: Status(apiVersion=v1, code=422, details=StatusDetails(causes=[StatusCause(field=spec.volumes[0].hostPath.path, message=Required value, reason=FieldValueRequired, additionalProperties={}), StatusCause(field=spec.containers[0].volumeMounts[0].name, message=Not found: "workspace-volume", reason=FieldValueNotFound, additionalProperties={}), StatusCause(field=spec.containers[0].volumeMounts[0].mountPath, message=Required value, reason=FieldValueRequired, additionalProperties={})], group=null, kind=Pod, name=bazel-server, retryAfterSeconds=null, uid=null, additionalProperties={}), kind=Status, message=Pod "bazel-server" is invalid: [spec.volumes[0].hostPath.path: Required value, spec.containers[0].volumeMounts[0].name: Not found: "workspace-volume", spec.containers[0].volumeMounts[0].mountPath: Required value], metadata=ListMeta(_continue=null, remainingItemCount=null, resourceVersion=null, selfLink=null, additionalProperties={}), reason=Invalid, status=Failure, additionalProperties={}).
+Dec 22, 2025 2:24:47 PM com.example.rbs.OrchestratorService getServer
+SEVERE: Error handling GetServer: Failed to create pod: Failure executing: POST at: https://10.96.0.1:443/api/v1/namespaces/testusera67d31c1-rbs-repofb2fc598/pods. Message: Pod "bazel-server" is invalid: [spec.volumes[0].hostPath.path: Required value, spec.containers[0].volumeMounts[0].name: Not found: "workspace-volume", spec.containers[0].volumeMounts[0].mountPath: Required value]. Received status: Status(apiVersion=v1, code=422, details=StatusDetails(causes=[StatusCause(field=spec.volumes[0].hostPath.path, message=Required value, reason=FieldValueRequired, additionalProperties={}), StatusCause(field=spec.containers[0].volumeMounts[0].name, message=Not found: "workspace-volume", reason=FieldValueNotFound, additionalProperties={}), StatusCause(field=spec.containers[0].volumeMounts[0].mountPath, message=Required value, reason=FieldValueRequired, additionalProperties={})], group=null, kind=Pod, name=bazel-server, retryAfterSeconds=null, uid=null, additionalProperties={}), kind=Status, message=Pod "bazel-server" is invalid: [spec.volumes[0].hostPath.path: Required value, spec.containers[0].volumeMounts[0].name: Not found: "workspace-volume", spec.containers[0].volumeMounts[0].mountPath: Required value], metadata=ListMeta(_continue=null, remainingItemCount=null, resourceVersion=null, selfLink=null, additionalProperties={}), reason=Invalid, status=Failure, additionalProperties={}).
+--- All Pods ---
+NAMESPACE            NAME                                            READY   STATUS    RESTARTS      AGE
+default              orchestrator-68746dc8f8-96924                   2/2     Running   1 (18s ago)   24s
+kube-system          coredns-5d78c9869d-72hc7                        1/1     Running   0             24s
+kube-system          coredns-5d78c9869d-9rjsq                        1/1     Running   0             24s
+kube-system          etcd-rbs-e2e-control-plane                      1/1     Running   0             37s
+kube-system          kindnet-8nns9                                   1/1     Running   0             24s
+kube-system          kube-apiserver-rbs-e2e-control-plane            1/1     Running   0             37s
+kube-system          kube-controller-manager-rbs-e2e-control-plane   1/1     Running   0             37s
+kube-system          kube-proxy-t4lkk                                1/1     Running   0             24s
+kube-system          kube-scheduler-rbs-e2e-control-plane            1/1     Running   0             37s
+local-path-storage   local-path-provisioner-6bc4bddd6b-w2p5b         1/1     Running   0             24s
+--- All Namespaces ---
+NAME                                STATUS   AGE
+default                             Active   41s
+kube-node-lease                     Active   41s
+kube-public                         Active   41s
+kube-system                         Active   41s
+local-path-storage                  Active   35s
+testusera67d31c1-rbs-repofb2fc598   Active   1s
+using podman due to KIND_EXPERIMENTAL_PROVIDER
+enabling experimental podman provider
+Deleting cluster "rbs-e2e" ...
+Deleted nodes: ["rbs-e2e-control-plane"]
+================================================================================
+INFO: Found 1 test target...
+Target //e2e:kind_test up-to-date:
+  bazel-bin/e2e/kind_test
+INFO: Elapsed time: 70.313s, Critical Path: 69.94s
+INFO: 2 processes: 2 action cache hit, 2 local.
+INFO: Build completed, 1 test FAILED, 2 total actions
+//e2e:kind_test                                                          FAILED in 69.9s
+  /home/jonathanp/.cache/bazel/_bazel_jonathanp/200565c80f72b60db8e0b0eed20d9845/execroot/_main/bazel-out/k8-fastbuild/testlogs/e2e/kind_test/test.log
+
+Executed 1 out of 1 test: 1 fails locally.
