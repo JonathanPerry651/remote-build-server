@@ -151,26 +151,29 @@ func runServerMode(outputBase, workspaceDir string, startupArgs []string) {
 	}
 
 	// 2. Setup Local Listener
-	// In Server Mode, we must pick a TCP port to emulate Bazel Server command_port.
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		slog.Error("failed to listen", "error", err)
-		os.Exit(1)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	slog.Info("Listening on TCP", "port", port)
-
-	// 3. Write Server Files
+	// In Server Mode, we use Unix Domain Socket to emulate Bazel Server.
 	serverDir := filepath.Join(outputBase, "server")
 	if err := os.MkdirAll(serverDir, 0755); err != nil {
 		slog.Error("failed to create server dir", "error", err)
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile(filepath.Join(serverDir, "command_port"), []byte(fmt.Sprintf("%d", port)), 0644); err != nil {
-		slog.Error("failed to write command_port", "error", err)
+	socketPath := filepath.Join(serverDir, "server.socket")
+	// Clean up old socket
+	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
+		slog.Error("failed to remove existing socket", "error", err)
 		os.Exit(1)
 	}
+
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		slog.Error("failed to listen", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Listening on UDS", "path", socketPath)
+
+	// 3. Write Server Files
+	// We no longer write command_port. Bazel Client should find server.socket.
 
 	// Create secure random cookie
 	cookie := make([]byte, 16)

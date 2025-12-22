@@ -86,6 +86,6 @@ To ensure hermetic builds and identical path structures between the client and s
 
 ### mTLS Everywhere
 All gRPC communications between components are secured using mutual TLS (mTLS).
-*   **Client <-> Proxy**: Secured via local credentials or Unix sockets.
+*   **Client <-> Proxy**: Unix Domain Sockets only (enforces local machine security).
 *   **Proxy <-> Orchestrator**: mTLS with per-user certificates.
 *   **Proxy <-> Agent**: mTLS to ensure only the authorized proxy can command the build agent.

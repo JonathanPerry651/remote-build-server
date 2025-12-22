@@ -135,19 +135,28 @@ if [ -n "\$SERVER_JAVABASE" ]; then
     nohup "$SERVER_JAVA" --output_base="\$OUTPUT_BASE" --workspace_directory="\$PWD" > "\$OUTPUT_BASE/server.log" 2>&1 &
 fi
 
-# Wait for command_port (TCP)
+# Wait for server.socket (UDS) or command_port (TCP)
+SERVER_SOCKET="\$OUTPUT_BASE/server/server.socket"
 COMMAND_PORT_FILE="\$OUTPUT_BASE/server/command_port"
 
 # Wait loop
 for i in {1..50}; do
+    if [ -S "\$SERVER_SOCKET" ]; then
+        echo "MockClient: Found server.socket"
+        TARGET="unix://\$SERVER_SOCKET"
+        break
+    fi
     if [ -f "\$COMMAND_PORT_FILE" ]; then
+        echo "MockClient: Found command_port"
+        PORT=\$(cat "\$COMMAND_PORT_FILE")
+        TARGET="localhost:\$PORT"
         break
     fi
     sleep 0.1
 done
 
-if [ ! -f "\$COMMAND_PORT_FILE" ]; then
-    echo "MockClient: command_port file not found at \$COMMAND_PORT_FILE"
+if [ -z "\$TARGET" ]; then
+    echo "MockClient: Timeout waiting for server connection files."
     if [ -f "\$OUTPUT_BASE/server.log" ]; then
         echo "Server Log:"
         cat "\$OUTPUT_BASE/server.log"
@@ -155,10 +164,9 @@ if [ ! -f "\$COMMAND_PORT_FILE" ]; then
     exit 1
 fi
 
-PORT=\$(cat "\$COMMAND_PORT_FILE")
-echo "MockClient: Connecting to localhost:\$PORT"
+echo "MockClient: Connecting to \$TARGET"
 # Use Verifier Client logic
-"\$VERIFIER_BINARY" --mode client --target "localhost:\$PORT"
+"\$VERIFIER_BINARY" --mode client --target "\$TARGET"
 exit \$?
 EOF
 chmod +x "$MOCK_BAZEL_CLIENT"

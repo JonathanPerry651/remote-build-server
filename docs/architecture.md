@@ -18,7 +18,7 @@ The standard Bazel binary (e.g., via Bazelisk). It is configured to use a custom
 
 ### 2. Proxy (Local)
 A lightweight Go binary that:
--   **Implements Bazel Lifecycle**: Handles the Bazel Server handshake (writing `command_port`, `request_cookie` to the output base).
+-   **Implements Bazel Lifecycle**: Handles the Bazel Server handshake (writing `server.socket`, `request_cookie` to the output base).
 -   **Session Management**: Contacts the **Orchestrator** to resolve or provision a remote build session for the current workspace.
 -   **Tunneling**: Forwards the underlying gRPC stream (CommandServer) to the remote Agent.
 
@@ -50,7 +50,7 @@ sequenceDiagram
 
     Client->>Proxy: Spawn (as "java")
     activate Proxy
-    Proxy->>Proxy: Write handshake files (port/cookie)
+    Proxy->>Proxy: Write handshake files (server.socket/cookie)
     
     Proxy->>Orch: GetServer(User, RepoHash)
     Orch-->>Proxy: Agent Address
