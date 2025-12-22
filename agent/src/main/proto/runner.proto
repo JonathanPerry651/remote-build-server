@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package rbs.agent;
+
+option go_package = "github.com/example/remote-build-server/agent/src/main/proto";
+
+service Runner {
+  // Bidirectional streaming for command execution
+  rpc ExecuteCommand (stream ExecuteRequest) returns (stream ExecuteResponse) {}
+}
+
+message ExecuteRequest {
+  oneof input {
+    InitRequest init = 1;
+    bytes stdin_chunk = 2;
+  }
+}
+
+message InitRequest {
+  repeated string args = 1;
+  map<string, string> env = 2;
+  string working_directory = 3;
+}
+
+message ExecuteResponse {
+  oneof output {
+    bytes stdout_chunk = 1;
+    bytes stderr_chunk = 2;
+    int32 exit_code = 3;
+  }
+}

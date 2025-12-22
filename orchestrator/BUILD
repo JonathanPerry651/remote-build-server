@@ -1,7 +1,9 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@rules_java//java:defs.bzl", "java_proto_library", "java_binary", "java_library")
-load("@rules_proto_grpc_java//:defs.bzl", "java_grpc_library")
 load("@rules_go//proto:def.bzl", "go_proto_library")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_proto_library")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_tarball")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_java//:defs.bzl", "java_grpc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -51,6 +53,12 @@ java_library(
         "@maven//:javax_annotation_javax_annotation_api",
         "@maven//:org_projectlombok_lombok",
         "@maven//:org_slf4j_slf4j_simple",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_sdk",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_logging",
+        "@maven//:io_opentelemetry_opentelemetry_context",
     ],
 )
 
@@ -65,6 +73,7 @@ java_binary(
 java_test(
     name = "orchestrator_test",
     srcs = ["src/test/java/com/example/rbs/OrchestratorServiceTest.java"],
+    args = ["--security-manager=allow"],
     test_class = "com.example.rbs.OrchestratorServiceTest",
     deps = [
         ":orchestrator_java_proto",
@@ -75,14 +84,12 @@ java_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
     ],
-    args = ["--security-manager=allow"],
 )
 
 java_test(
     name = "process_lifecycle_test",
     srcs = [
         "src/test/java/com/example/rbs/ProcessLifecycleTest.java",
-        "src/test/java/com/example/rbs/ProcessComputeService.java",
     ],
     test_class = "com.example.rbs.ProcessLifecycleTest",
     deps = [
@@ -96,9 +103,6 @@ java_test(
     ],
 )
 
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_tarball")
-
 pkg_tar(
     name = "app_layer",
     srcs = [":server_deploy.jar"],
@@ -108,7 +112,11 @@ pkg_tar(
 oci_image(
     name = "image",
     base = "@distroless_java",
-    entrypoint = ["java", "-jar", "/app/server_deploy.jar"],
+    entrypoint = [
+        "java",
+        "-jar",
+        "/app/server_deploy.jar",
+    ],
     tars = [":app_layer"],
 )
 

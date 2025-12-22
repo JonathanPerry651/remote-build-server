@@ -14,9 +14,12 @@ public class KubernetesComputeService implements ComputeService {
     }
 
     @Override
-    public String createContainer(String userId, String repoHash) {
+    public String createContainer(String userId, String repoHash, String sourcePath) {
         String podName = getPodName(userId, repoHash);
-        logger.info("Creating pod: " + podName);
+        logger.info("Creating pod: " + podName + " (source: " + sourcePath + ")");
+
+        // In real K8s, we would Use sourcePath for HostPath volume definition
+        // For now, ignoring it as per instructions for Phase 0 execution.
 
         // Define Pod
         Pod pod = new PodBuilder()

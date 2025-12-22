@@ -26,13 +26,13 @@ public class ProcessLifecycleTest {
 
     private ProcessComputeService computeService;
     private OrchestratorService service;
-    private DatabaseClient dbClient;
+    private InMemorySessionRepository sessionRepo;
 
     @Before
     public void setUp() {
         computeService = new ProcessComputeService();
-        dbClient = mock(DatabaseClient.class);
-        service = new OrchestratorService(dbClient, computeService);
+        sessionRepo = new InMemorySessionRepository();
+        service = new OrchestratorService(sessionRepo, computeService);
     }
 
     @After
@@ -47,9 +47,7 @@ public class ProcessLifecycleTest {
         String sessionId1 = "session1";
 
         // --- Step 1: Request Server (New Session) ---
-        // Mock DB: No session
-        mockSpannerQuery(null, null, null);
-        mockSpannerUpdate();
+        // InMemory DB is empty by default
 
         GetServerRequest req1 = GetServerRequest.newBuilder()
                 .setUserId(userId).setRepoHash(repoHash).setSessionId(sessionId1).build();
@@ -69,19 +67,20 @@ public class ProcessLifecycleTest {
         // compute service)
         // Since process compute service returns READY immediately for 'Running'
         // processes.
-        mockSpannerQuery(sessionId1, null, "PENDING");
-        mockSpannerUpdate(); // It will update to READY
+        // --- Step 2: Poll (Check Ready) ---
+        // InMemory DB implicitly holds state. Check if session stored.
+        // We don't need to mock query/update anymore. logic flows naturally.
 
         GetServerResponse resp2 = callGetServer(req1);
 
         assertThat(resp2.getStatus()).isEqualTo("READY");
-        assertThat(resp2.getPodIp()).isEqualTo("127.0.0.1");
+        assertThat(resp2.getServerAddress()).contains("127.0.0.1");
 
         // --- Step 3: Change Session (Delete & Recreate) ---
         String sessionId2 = "session2";
         // Mock DB: shows old session
-        mockSpannerQuery(sessionId1, "127.0.0.1", "READY");
-        mockSpannerUpdate(); // Update new session
+        // --- Step 3: Change Session (Delete & Recreate) ---
+        String sessionId2 = "session2";
 
         GetServerRequest req2 = GetServerRequest.newBuilder()
                 .setUserId(userId).setRepoHash(repoHash).setSessionId(sessionId2).build();
@@ -114,30 +113,6 @@ public class ProcessLifecycleTest {
         return ref.get();
     }
 
-    private void mockSpannerQuery(String sessionId, String podIp, String status) {
-        ReadContext readContext = mock(ReadContext.class);
-        ResultSet resultSet = mock(ResultSet.class);
-        when(dbClient.singleUse()).thenReturn(readContext);
-        when(readContext.executeQuery(any(Statement.class))).thenReturn(resultSet);
-
-        if (sessionId != null) {
-            when(resultSet.next()).thenReturn(true);
-            when(resultSet.getString("SessionId")).thenReturn(sessionId);
-            when(resultSet.isNull("PodIP")).thenReturn(podIp == null);
-            if (podIp != null)
-                when(resultSet.getString("PodIP")).thenReturn(podIp);
-            when(resultSet.getString("Status")).thenReturn(status);
-        } else {
-            when(resultSet.next()).thenReturn(false);
-        }
-    }
-
-    private void mockSpannerUpdate() {
-        TransactionRunner runner = mock(TransactionRunner.class);
-        when(dbClient.readWriteTransaction()).thenReturn(runner);
-        when(runner.run(any())).thenAnswer(invocation -> {
-            TransactionRunner.TransactionCallable<Void> callable = invocation.getArgument(0);
-            return callable.run(mock(TransactionContext.class));
-        });
-    }
+    // Mock helpers removed
+}
 }

@@ -7,14 +7,14 @@ java_binary(
     deps = [
         "//orchestrator:orchestrator_java_grpc",
         "//orchestrator:orchestrator_java_proto",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_fabric8_kubernetes_client",
         "@maven//:io_fabric8_kubernetes_client_api",
         "@maven//:io_fabric8_kubernetes_model_core",
-        "@maven//:org_slf4j_slf4j_simple",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty_shaded",
+        "@maven//:io_grpc_grpc_stub",
         "@maven//:org_assertj_assertj_core",
+        "@maven//:org_slf4j_slf4j_simple",
     ],
 )
 
@@ -23,11 +23,31 @@ sh_test(
     srcs = ["kind_test.sh"],
     data = [
         ":e2e_client",
-        "//orchestrator:tarball",
         "//infra:k8s/orchestrator.yaml",
+        "//orchestrator:tarball",
+        "@bazel_tools//tools/bash/runfiles",
         "@kind//file",
         "@kubectl//file",
+    ],
+    tags = [
+        "exclusive",
+        "local",
+        "manual",
+    ],
+)
+
+sh_test(
+    name = "mirror_test",
+    srcs = ["mirror_test.sh"],
+    data = [
+        "//agent",
+        "//jbazel",
+        "//orchestrator:server",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["manual", "local", "exclusive"],
+    tags = [
+        "exclusive",
+        "local",
+        "manual",
+    ],
 )

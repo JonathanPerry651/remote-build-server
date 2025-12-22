@@ -17,64 +17,75 @@ public class OrchestratorServer {
 
     private Server server;
 
-    private void start() throws IOException {
-        /* The port on which the server should run */
-        int port = 50051;
+    private void start(int port, boolean localMode) throws IOException {
+        SessionRepository sessionRepo;
+        ComputeService computeService;
 
-        // Initialize Spanner Client
-        SpannerOptions options = SpannerOptions.newBuilder().setEmulatorHost("localhost:9010").build();
-        Spanner spanner = options.getService();
-        String projectId = options.getProjectId();
-        String instanceId = "test-instance";
-        String databaseId = "test-database";
+        if (localMode) {
+            logger.info("Starting in LOCAL MODE (InMemory DB + Process Compute)");
+            sessionRepo = new InMemorySessionRepository();
+            computeService = new ProcessComputeService();
+        } else {
+            // Initialize Spanner Client
+            SpannerOptions options = SpannerOptions.newBuilder().setEmulatorHost("localhost:9010").build();
+            Spanner spanner = options.getService();
+            String projectId = options.getProjectId();
+            String instanceId = "test-instance";
+            String databaseId = "test-database";
 
-        // Create Instance if not exists (for Emulator)
-        try {
-            com.google.cloud.spanner.InstanceConfigId configId = com.google.cloud.spanner.InstanceConfigId.of(projectId,
-                    "emulator-config");
-            com.google.cloud.spanner.InstanceId instanceIdObj = com.google.cloud.spanner.InstanceId.of(projectId,
-                    instanceId);
-            com.google.cloud.spanner.InstanceInfo instanceInfo = com.google.cloud.spanner.InstanceInfo
-                    .newBuilder(instanceIdObj)
-                    .setInstanceConfigId(configId)
-                    .setDisplayName("Test Instance")
-                    .setNodeCount(1)
-                    .build();
+            // Create Instance if not exists (for Emulator)
+            try {
+                com.google.cloud.spanner.InstanceConfigId configId = com.google.cloud.spanner.InstanceConfigId.of(
+                        projectId,
+                        "emulator-config");
+                com.google.cloud.spanner.InstanceId instanceIdObj = com.google.cloud.spanner.InstanceId.of(projectId,
+                        instanceId);
+                com.google.cloud.spanner.InstanceInfo instanceInfo = com.google.cloud.spanner.InstanceInfo
+                        .newBuilder(instanceIdObj)
+                        .setInstanceConfigId(configId)
+                        .setDisplayName("Test Instance")
+                        .setNodeCount(1)
+                        .build();
 
-            spanner.getInstanceAdminClient().createInstance(instanceInfo).get();
-        } catch (Exception e) {
-            // Ignore if already exists (or other errors, assuming check later)
-            // Real usage would check existence first
-            logger.info("Instance creation failed (may already exist): " + e.getMessage());
+                spanner.getInstanceAdminClient().createInstance(instanceInfo).get();
+            } catch (Exception e) {
+                // Ignore if already exists (or other errors, assuming check later)
+                // Real usage would check existence first
+                logger.info("Instance creation failed (may already exist): " + e.getMessage());
+            }
+
+            // Create Database if not exists
+            try {
+                spanner.getDatabaseAdminClient().createDatabase(
+                        instanceId,
+                        databaseId,
+                        java.util.Collections.singletonList(
+                                "CREATE TABLE BuildSessions (" +
+                                        "    UserId STRING(MAX) NOT NULL," +
+                                        "    RepoHash STRING(MAX) NOT NULL," +
+                                        "    SessionId STRING(MAX)," +
+                                        "    PodIP STRING(MAX)," +
+                                        "    Status STRING(MAX)" +
+                                        ") PRIMARY KEY (UserId, RepoHash)"))
+                        .get();
+            } catch (Exception e) {
+                logger.info("Database creation failed (may already exist): " + e.getMessage());
+            }
+
+            DatabaseId dbId = DatabaseId.of(projectId, instanceId, databaseId);
+            DatabaseClient dbClient = spanner.getDatabaseClient(dbId);
+            sessionRepo = new SpannerSessionRepository(dbClient);
+
+            // Initialize Kubernetes Client
+            KubernetesClient k8sClient = new KubernetesClientBuilder().build();
+            computeService = new KubernetesComputeService(k8sClient);
         }
 
-        // Create Database if not exists
-        try {
-            spanner.getDatabaseAdminClient().createDatabase(
-                    instanceId,
-                    databaseId,
-                    java.util.Collections.singletonList(
-                            "CREATE TABLE BuildSessions (" +
-                                    "    UserId STRING(MAX) NOT NULL," +
-                                    "    RepoHash STRING(MAX) NOT NULL," +
-                                    "    SessionId STRING(MAX)," +
-                                    "    PodIP STRING(MAX)," +
-                                    "    Status STRING(MAX)" +
-                                    ") PRIMARY KEY (UserId, RepoHash)"))
-                    .get();
-        } catch (Exception e) {
-            logger.info("Database creation failed (may already exist): " + e.getMessage());
-        }
-
-        DatabaseId dbId = DatabaseId.of(projectId, instanceId, databaseId);
-        DatabaseClient dbClient = spanner.getDatabaseClient(dbId);
-
-        // Initialize Kubernetes Client
-        KubernetesClient k8sClient = new KubernetesClientBuilder().build();
-        ComputeService computeService = new KubernetesComputeService(k8sClient);
+        Telemetry.init();
 
         server = ServerBuilder.forPort(port)
-                .addService(new OrchestratorService(dbClient, computeService))
+                .addService(new OrchestratorService(sessionRepo, computeService))
+                .intercept(new TracingInterceptor())
                 .build()
                 .start();
         logger.info("Server started, listening on " + port);
@@ -111,8 +122,18 @@ public class OrchestratorServer {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
+        boolean localMode = false;
+        int port = 50051;
+        for (String arg : args) {
+            if (arg.equals("--local-mode")) {
+                localMode = true;
+            } else if (arg.startsWith("--port=")) {
+                port = Integer.parseInt(arg.substring("--port=".length()));
+            }
+        }
+
         final OrchestratorServer server = new OrchestratorServer();
-        server.start();
+        server.start(port, localMode);
         server.blockUntilShutdown();
     }
 }

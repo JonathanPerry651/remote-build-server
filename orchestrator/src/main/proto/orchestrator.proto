@@ -14,9 +14,10 @@ message GetServerRequest {
   string user_id = 1;
   string repo_hash = 2;
   string session_id = 3;
+  string source_path = 4;
 }
 
 message GetServerResponse {
-  string pod_ip = 1;
+  string server_address = 1;
   string status = 2;
 }

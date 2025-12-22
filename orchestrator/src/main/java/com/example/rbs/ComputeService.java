@@ -7,11 +7,12 @@ public interface ComputeService {
     /**
      * Creates a compute container for a build session.
      * 
-     * @param userId   The user ID.
-     * @param repoHash The repository hash.
+     * @param userId     The user ID.
+     * @param repoHash   The repository hash.
+     * @param sourcePath The source path.
      * @return The name/ID of the created container.
      */
-    String createContainer(String userId, String repoHash);
+    String createContainer(String userId, String repoHash, String sourcePath);
 
     /**
      * Deletes a compute container.
@@ -33,19 +34,19 @@ public interface ComputeService {
 
     class ContainerStatus {
         private final String status; // e.g. "READY", "PENDING"
-        private final String ipAddress;
+        private final String address;
 
-        public ContainerStatus(String status, String ipAddress) {
+        public ContainerStatus(String status, String address) {
             this.status = status;
-            this.ipAddress = ipAddress;
+            this.address = address;
         }
 
         public String getStatus() {
             return status;
         }
 
-        public String getIpAddress() {
-            return ipAddress;
+        public String getAddress() {
+            return address;
         }
     }
 }
