@@ -63,6 +63,17 @@ sequenceDiagram
     *   The gRPC frames (CommandServer methods) are proxied transparently.
     *   Stdin/Stdout/Stderr and Exit Code are handled natively by the Bazel gRPC protocol.
 
+## Storage Strategy: Google Cloud Filestore
+
+To make this architecture viable, we leverage **Google Cloud Filestore** (or a high-performance NFS solution) to ensure a unified view of the filesystem across the local/remote boundary.
+
+*   **Remote Side**: The Agent Pod mounts the Filestore volume as its workspace root.
+*   **Local Side**: The Developer Machine mounts the **same** Filestore volume (e.g., via Cloud VPN/Interconnect).
+
+This shared storage layer solves two critical problems:
+1.  **Input Sync**: No need for `rsync`. Edits on the local mount are immediately visible to the Remote Agent.
+2.  **Bazel Consistency**: The local Bazel Client can access `bazel-out` and other artifacts directly if needed, satisfying its expectation of a shared filesystem for simplified convenience symlinks and jar loading.
+
 ## Comparison
 
 | Feature | Current (stdin/stdout wrapper) | Proposed (gRPC Proxy) |
@@ -72,12 +83,12 @@ sequenceDiagram
 | **Complexity** | Low (Text streaming). | High (Tunneling, Socket interception, gRPC framing). |
 | **Performance** | Good (Streaming). | Excellent (Native protocol). |
 | **Analysis** | Remote (Fast, shared). | Remote (Fast, shared). |
-| **Input Sync** | Manual/Rsync. | Needs to happen "out of band" or via side-channel. |
+| **Input Sync** | Manual/Rsync. | **Shared Filestore (Zero copy)**. |
 
 ## Feasibility Notes
 *   **Bazel Protocol**: The protocol between client and server is not strictly public API, but it is gRPC.
 *   **Socket Path**: Bazel computes the socket path based on the output base. We would need to ensure the Local Proxy listens exactly where the Client expects, or use a patched Client/wrapper that directs traffic to us.
-*   **Filesystem**: The Bazel Client expects to share a filesystem with the Server for some operations (loading jar files?). If the Client is local and Server is remote, we interpret strictly the gRPC Command interface. Issues might arise if the Client tries to read files written by the Server (e.g., BES files, convenience symlinks).
+*   **Filesystem**: The Bazel Client expects to share a filesystem with the Server. **Filestore** perfectly addresses this requirement, ensuring that any file written by the remote server is instantly accessible to the local client.
 
 ## Recommendation
 This approach offers the "Holy Grail" of remote builds: **Remote Execution with Local Experience**. It enables IDE integrations to work seamlessly. However, it requires a deeper understanding of the Bazel Client-Server internal protocol.
