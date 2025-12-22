@@ -134,6 +134,7 @@ func runServerMode(outputBase, workspaceDir string, startupArgs []string) {
 			SessionId:      sessionId,
 			SourcePath:     workspaceDir,
 			StartupOptions: startupArgs,
+			Region:         detectRegion(),
 		}
 		resp, err := orchClient.GetServer(ctx, req)
 		if err != nil {

@@ -16,7 +16,7 @@ public class ProcessComputeService implements ComputeService {
 
     @Override
     public String createContainer(String userId, String repoHash, String sourcePath,
-            java.util.List<String> startupOptions) {
+            java.util.List<String> startupOptions, String region) {
         String containerId = getContainerId(userId, repoHash);
         logger.info("Process: Spawning process for " + containerId + " (source: " + sourcePath + ")");
 

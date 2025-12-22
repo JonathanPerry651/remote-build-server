@@ -77,6 +77,17 @@ RBS utilizes **Proxyless gRPC** with **Google Cloud Traffic Director** for advan
 *   **Address Format**: The logical address of each Agent Pod is constructed as: `<namespace>.<project_id>`
 *   **Mechanism**: The local Proxy connects to `xds://<namespace>.<project_id>`, and Traffic Director resolves this to the specific Agent Pod IP in the GKE cluster.
 
+## Region-Aware Scheduling
+To act as a low-latency remote build server, it is critical that the Agent Pod is scheduled in the same geographical region as the developer.
+
+### Mechanism
+1.  **Detection**: The client-side Proxy automatically detects its current region.
+    *   **GCP**: Queries the Metadata API (`metadata.google.internal`) to determine the current zone/region.
+    *   **Local/Fallback**: Checks the `RBS_REGION` environment variable.
+2.  **Request**: This region is passed to the Orchestrator via the `GetServer` gRPC request.
+3.  **Scheduling**: The Orchestrator applies the `rbs.region` annotation (e.g., `rbs.region: us-west1`) to the Agent Pod manifest.
+4.  **Placement**: The Kubernetes cluster (via admission controllers or scheduler policies) uses this annotation to ensure the Pod is scheduled on a Node Pool in the requested region.
+
 ## Security & Isolation
 
 ### Namespace Isolation

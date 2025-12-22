@@ -2,7 +2,10 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "proxy_lib",
-    srcs = ["src/main.go"],
+    srcs = [
+        "src/main.go",
+        "src/region.go",
+    ],
     importpath = "github.com/example/remote-build-server/proxy",
     visibility = ["//visibility:private"],
     deps = [

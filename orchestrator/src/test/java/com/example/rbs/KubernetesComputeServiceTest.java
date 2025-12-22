@@ -31,7 +31,7 @@ public class KubernetesComputeServiceTest {
         String expectedNamespace = "testuser-rbs-abcdef123456";
         String expectedSa = "sa-testuser";
 
-        String podName = service.createContainer(userId, repoHash, sourcePath, startupOptions);
+        String podName = service.createContainer(userId, repoHash, sourcePath, startupOptions, "us-west1");
 
         // Check Namespace creation
         assertNotNull("Namespace should exist", client.namespaces().withName(expectedNamespace).get());
@@ -45,6 +45,7 @@ public class KubernetesComputeServiceTest {
         assertNotNull("Pod should exist in namespace " + expectedNamespace, pod);
         assertEquals("localhost/agent:latest", pod.getSpec().getContainers().get(0).getImage());
         assertEquals(expectedSa, pod.getSpec().getServiceAccountName());
+        assertEquals("us-west1", pod.getMetadata().getAnnotations().get("rbs.region"));
 
         // Verify Volume
         boolean foundVolume = false;

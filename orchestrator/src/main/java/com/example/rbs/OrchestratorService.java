@@ -28,6 +28,7 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
     String repoHash = request.getRepoHash();
     String clientSessionId = request.getSessionId(); // Optional, from client
     String sourcePath = request.getSourcePath();
+    String region = request.getRegion();
 
     logger.info(
         "Received GetServer request for User: " + userId + ", Repo: " + repoHash + " (Source: " + sourcePath + ")");
@@ -52,7 +53,7 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
           computeService.deleteContainer(userId, repoHash);
 
           // Create new flow
-          handleNewSession(userId, repoHash, clientSessionId, sourcePath, request.getStartupOptionsList(),
+          handleNewSession(userId, repoHash, clientSessionId, sourcePath, request.getStartupOptionsList(), region,
               responseObserver);
           return;
         } else {
@@ -65,7 +66,7 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
         // No session exists. Create new.
         handleNewSession(userId, repoHash,
             !clientSessionId.isEmpty() ? clientSessionId : java.util.UUID.randomUUID().toString(), sourcePath,
-            request.getStartupOptionsList(), responseObserver);
+            request.getStartupOptionsList(), region, responseObserver);
         return;
       }
     } catch (Exception e) {
@@ -75,9 +76,9 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
   }
 
   private void handleNewSession(String userId, String repoHash, String sessionId, String sourcePath,
-      java.util.List<String> startupOptions, StreamObserver<GetServerResponse> responseObserver) {
+      java.util.List<String> startupOptions, String region, StreamObserver<GetServerResponse> responseObserver) {
     // Create Pod
-    computeService.createContainer(userId, repoHash, sourcePath, startupOptions);
+    computeService.createContainer(userId, repoHash, sourcePath, startupOptions, region);
 
     // Save session 'PENDING'
     sessionRepo.saveSession(userId, repoHash, sessionId, null, "PENDING");

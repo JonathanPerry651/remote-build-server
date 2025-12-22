@@ -16,6 +16,7 @@ message GetServerRequest {
   string session_id = 3;
   string source_path = 4;
   repeated string startup_options = 5;
+  string region = 6;
 }
 
 message GetServerResponse {

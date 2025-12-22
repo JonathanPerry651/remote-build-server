@@ -11,9 +11,11 @@ public interface ComputeService {
      * @param repoHash       The repository hash.
      * @param sourcePath     The source path.
      * @param startupOptions The list of startup options for the Bazel server.
+     * @param region         The target region for the container.
      * @return The name/ID of the created container.
      */
-    String createContainer(String userId, String repoHash, String sourcePath, java.util.List<String> startupOptions);
+    String createContainer(String userId, String repoHash, String sourcePath, java.util.List<String> startupOptions,
+            String region);
 
     /**
      * Deletes a compute container.

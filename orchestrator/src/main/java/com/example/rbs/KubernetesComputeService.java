@@ -17,7 +17,7 @@ public class KubernetesComputeService implements ComputeService {
 
     @Override
     public String createContainer(String userId, String repoHash, String sourcePath,
-            java.util.List<String> startupOptions) {
+            java.util.List<String> startupOptions, String region) {
         // TODO: Implement startupOptions for Kubernetes
         // For now, ignoring them in K8s implementation until next phase
         String sanitizedUser = userId.toLowerCase().replaceAll("[^a-z0-9]", "");
@@ -29,15 +29,22 @@ public class KubernetesComputeService implements ComputeService {
         createNamespace(namespace);
         createServiceAccount(namespace, serviceAccountName);
 
-        logger.info("Creating pod: " + podName + " in namespace " + namespace + " (source: " + sourcePath + ")");
+        logger.info("Creating pod: " + podName + " in namespace " + namespace + " (source: " + sourcePath
+                + ") in region: " + region);
 
         // Define Pod
+        java.util.Map<String, String> annotations = new java.util.HashMap<>();
+        if (region != null && !region.isEmpty()) {
+            annotations.put("rbs.region", region);
+        }
+
         Pod pod = new PodBuilder()
                 .withNewMetadata()
                 .withName(podName)
                 .withNamespace(namespace)
                 .addToLabels("app", "bazel-build")
                 .addToLabels("user", userId)
+                .addToAnnotations(annotations)
                 .endMetadata()
                 .withNewSpec()
                 .withServiceAccountName(serviceAccountName)
