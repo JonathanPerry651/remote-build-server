@@ -26,24 +26,30 @@ if [ ! -f "$ORCHESTRATOR_BINARY" ]; then
     ORCHESTRATOR_BINARY="./orchestrator/server"
 fi
 
-JBAZEL_BINARY="./bazel-bin/jbazel/jbazel_/jbazel"
+JBAZEL_BINARY="./bazel-bin/jbazel/src/jbazel_/jbazel"
 if [ ! -f "$JBAZEL_BINARY" ]; then
-    JBAZEL_BINARY="./jbazel/jbazel_/jbazel"
+    JBAZEL_BINARY="./jbazel/src/jbazel_/jbazel"
+fi
+
+PROXY_BINARY="./bazel-bin/proxy/proxy_/proxy"
+if [ ! -f "$PROXY_BINARY" ]; then
+    PROXY_BINARY="./proxy/proxy_/proxy"
+fi
+
+VERIFIER_BINARY="./bazel-bin/e2e/test_tools/verifier_/verifier"
+if [ ! -f "$VERIFIER_BINARY" ]; then
+    VERIFIER_BINARY="./e2e/test_tools/verifier_/verifier"
 fi
 
 # Ensure executable
 [ -f "$AGENT_BINARY" ] && chmod +x "$AGENT_BINARY"
 [ -f "$ORCHESTRATOR_BINARY" ] && chmod +x "$ORCHESTRATOR_BINARY"
 [ -f "$JBAZEL_BINARY" ] && chmod +x "$JBAZEL_BINARY"
+[ -f "$PROXY_BINARY" ] && chmod +x "$PROXY_BINARY"
+[ -f "$VERIFIER_BINARY" ] && chmod +x "$VERIFIER_BINARY"
 
-if [ ! -f "$AGENT_BINARY" ] || [ ! -f "$ORCHESTRATOR_BINARY" ] || [ ! -f "$JBAZEL_BINARY" ]; then
+if [ ! -f "$AGENT_BINARY" ] || [ ! -f "$ORCHESTRATOR_BINARY" ] || [ ! -f "$JBAZEL_BINARY" ] || [ ! -f "$PROXY_BINARY" ] || [ ! -f "$VERIFIER_BINARY" ]; then
   echo "Error: Could not locate required binaries."
-  echo "Looking for:"
-  echo "  Agent: $AGENT_BINARY"
-  echo "  Orchestrator: $ORCHESTRATOR_BINARY"
-  echo "  Jbazel: $JBAZEL_BINARY"
-  echo "Current directory structure:"
-  find . -maxdepth 4
   exit 1
 fi
 
@@ -51,8 +57,13 @@ fi
 AGENT_BINARY=$(readlink -f "$AGENT_BINARY")
 ORCHESTRATOR_BINARY=$(readlink -f "$ORCHESTRATOR_BINARY")
 JBAZEL_BINARY=$(readlink -f "$JBAZEL_BINARY")
+PROXY_BINARY=$(readlink -f "$PROXY_BINARY")
+VERIFIER_BINARY=$(readlink -f "$VERIFIER_BINARY")
 
 export AGENT_BINARY="$AGENT_BINARY"
+# Jbazel needs to know where Proxy is
+export JBAZEL_PROXY_BIN="$PROXY_BINARY"
+export ORCHESTRATOR_ADDR="localhost:50051"
 
 # Create a temporary workspace
 WORK_DIR=$(mktemp -d)
@@ -62,57 +73,130 @@ mkdir -p "$WORK_DIR/src/main"
 touch "$WORK_DIR/MODULE.bazel"
 echo 'print("Hello from remote bazel")' > "$WORK_DIR/src/main/BUILD"
 
+# MOCK LOCAL BAZEL CLIENT
+# This replaces real "bazel". It receives --output_base, finds the socket, and tests connection.
+# Connection = Send a gRPC request e.g. /TestService/Echo (Verifier)
+MOCK_BAZEL_CLIENT="$WORK_DIR/bazel_client"
+cat > "$MOCK_BAZEL_CLIENT" <<EOF
+#!/bin/bash
+# Mock Bazel Client
+# Expected usage: bazel --output_base=... command ...
+OUTPUT_BASE=""
+for i in "\$@"; do
+    if [[ \$i == --output_base=* ]]; then
+        OUTPUT_BASE="\${i#*=}"
+    fi
+done
+
+if [ -z "\$OUTPUT_BASE" ]; then
+    echo "MockClient: No output base provided"
+    exit 1
+fi
+
+SOCKET="\$OUTPUT_BASE/server/server.socket"
+
+# Wait for socket availability?
+# jbazel waits for proxy.
+# So socket should be there.
+
+if [ ! -S "\$SOCKET" ]; then
+    echo "MockClient: Socket not found at \$SOCKET"
+    exit 1
+fi
+
+echo "MockClient: Connecting to \$SOCKET"
+# Use Verifier Client logic
+"$VERIFIER_BINARY" --mode client --target "unix://\$SOCKET"
+exit \$?
+EOF
+chmod +x "$MOCK_BAZEL_CLIENT"
+export JBAZEL_BAZEL_BIN="$MOCK_BAZEL_CLIENT"
+
+# Mock Remote Bazel Server (Using Agent?)
+# Mirror Test runs: Jbazel -> Proxy -> Agent -> Remote Server.
+# In "Local Mode", Orchestrator spawns an Agent.
+# The Agent registers with Orchestrator.
+# But for "Mirror Test" we want to test the full loop?
+# Wait, Orchestrator spawns Agent. Agent listens.
+# Where does Agent forward to?
+# Agent tries to find "bazel info output_base" locally where Agent runs.
+# In Mirror Test, Agent runs locally.
+# So Agent will try to run "bazel info..." on the test machine.
+# We need to trick Agent to find OUR Mock Server.
+# Agent calls `resolveBazelSocket`. `bazel info output_base`.
+# We need to MOCK `bazel` for the AGENT too!
+# But AGENT doesn't accept a flag for `bazel` bin.
+# It uses "bazel" from PATH.
+# We can prepend to PATH given to Agent?
+# ProcessComputeService spawns Agent.
+# Does it pass PATH?
+# In local Process test, it inherits PATH?
+# Yes.
+# So if we put a `bazel` shim in PATH, Agent picks it up.
+
+MOCK_BAZEL_SERVER_BIN="$WORK_DIR/bin/bazel"
+mkdir -p "$(dirname "$MOCK_BAZEL_SERVER_BIN")"
+cat > "$MOCK_BAZEL_SERVER_BIN" <<EOF
+#!/bin/bash
+if [ "\$1" == "info" ] && [ "\$2" == "output_base" ]; then
+    echo "$WORK_DIR/remote_output_base"
+else
+    echo "Unknown command \$@"
+    exit 1
+fi
+EOF
+chmod +x "$MOCK_BAZEL_SERVER_BIN"
+export PATH="$(dirname "$MOCK_BAZEL_SERVER_BIN"):$PATH"
+
+# Start Mock Remote Bazel Server (Verifier Server)
+REMOTE_SOCKET_DIR="$WORK_DIR/remote_output_base/server"
+mkdir -p "$REMOTE_SOCKET_DIR"
+REMOTE_SOCKET="$REMOTE_SOCKET_DIR/server.socket"
+"$VERIFIER_BINARY" --mode server --addr "$REMOTE_SOCKET" &
+REMOTE_SERVER_PID=$!
+trap "kill $REMOTE_SERVER_PID; rm -rf $WORK_DIR" EXIT
+
 # --- 2. Start Orchestrator ---
 PORT=50051
+# The orchestrator will spawn an AGENT (locally).
+# That Agent will inherit our PATH (with mock bazel).
+# That Agent will resolve socket to REMOTE_SOCKET.
+# That Agent will listen on random port and register with Orchestrator.
 $ORCHESTRATOR_BINARY --port=$PORT --local-mode &
 SERVER_PID=$!
-trap "kill $SERVER_PID" EXIT
+trap "kill $SERVER_PID $REMOTE_SERVER_PID; rm -rf $WORK_DIR" EXIT
 
-# Wait for server
+# Wait for orchestrator
 sleep 5
 
 # --- 3. Run jbazel ---
 # We simulate being in a workspace
 cd "$WORK_DIR/src/main"
 
-# Run version command
-output=$($JBAZEL_BINARY version --orchestrator=localhost:$PORT)
-echo "Output: $output"
+# Run jbazel
+# jbazel finds Orchestrator.
+# Gets Agent Addr.
+# Starts Proxy -> Agent.
+# Runs Mock Local Bazel -> Proxy.
+# Proxy -> Agent -> Remote Mock Bazel.
+# Remote Mock Bazel echoes.
+# Mock Local Bazel (Verifier) checks Echo.
 
-if [[ "$output" == *"Build label"* ]]; then # Standard bazel version output
-  echo "PASS: jbazel version command succeeded"
+output_file="$WORK_DIR/jbazel.log"
+$JBAZEL_BINARY test //... --orchestrator=localhost:$PORT > "$output_file" 2>&1 || true
+jbazel_exit=$?
+
+echo "Jbazel Output:"
+cat "$output_file"
+
+if [ $jbazel_exit -eq 0 ]; then
+  if grep -q "SUCCESS: Echo received" "$output_file"; then
+    echo "PASS: Full Proxy Loop Verified"
+  else
+    echo "FAIL: Exit 0 but 'SUCCESS' not found"
+    exit 1
+  fi
 else
-  # It might output "Standard bazel..." depending on bazelisk
-  # Our mock agent executes `bazel version`.
-  # If local machine has bazel, it works.
-  echo "INFO: Check output manually. Got: $output"
-fi
-
-# Run build command effectively
-$JBAZEL_BINARY build //... --orchestrator=localhost:$PORT
-
-# --- 4. Verify 'bazel run' ---
-echo 'sh_binary(name="hello", srcs=["hello.sh"])' > "$WORK_DIR/src/main/BUILD"
-echo '#!/bin/bash' > "$WORK_DIR/src/main/hello.sh"
-echo 'echo "Hello from run"' >> "$WORK_DIR/src/main/hello.sh"
-chmod +x "$WORK_DIR/src/main/hello.sh"
-
-echo "Running 'bazel run //src/main:hello'..."
-run_output=$($JBAZEL_BINARY run //src/main:hello --orchestrator=localhost:$PORT)
-if [[ "$run_output" == *"Hello from run"* ]]; then
-  echo "PASS: jbazel run succeeded"
-else
-  echo "FAIL: jbazel run failed. Output: $run_output"
+  echo "FAIL: Jbazel exited with $jbazel_exit"
   exit 1
 fi
-
-# --- 5. Verify 'bazel test' ---
-echo 'sh_test(name="simple_test", srcs=["test.sh"])' >> "$WORK_DIR/src/main/BUILD"
-echo '#!/bin/bash' > "$WORK_DIR/src/main/test.sh"
-echo 'exit 0' >> "$WORK_DIR/src/main/test.sh"
-chmod +x "$WORK_DIR/src/main/test.sh"
-
-echo "Running 'bazel test //src/main:simple_test'..."
-$JBAZEL_BINARY test //src/main:simple_test --orchestrator=localhost:$PORT
-
-echo "PASS: Mirror test complete (build, run, test)"

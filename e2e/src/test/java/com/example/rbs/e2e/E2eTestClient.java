@@ -43,7 +43,7 @@ public class E2eTestClient {
                     .build();
 
             GetServerResponse response = stub.getServer(request);
-            System.out.println("Response: Status=" + response.getStatus() + ", PodIP=" + response.getPodIp());
+            System.out.println("Response: Status=" + response.getStatus() + ", PodIP=" + response.getServerAddress());
 
             // 2. Poll for READY
             System.out.println("2. Polling for READY status...");
@@ -54,18 +54,18 @@ public class E2eTestClient {
                 }
                 Thread.sleep(1000);
                 response = stub.getServer(request);
-                System.out.println("Polled Status: " + response.getStatus() + ", IP=" + response.getPodIp());
+                System.out.println("Polled Status: " + response.getStatus() + ", IP=" + response.getServerAddress());
             }
 
             assertThat(response.getStatus())
                     .as("Orchestrator should eventually report READY")
                     .isEqualTo("READY");
 
-            assertThat(response.getPodIp())
+            assertThat(response.getServerAddress())
                     .as("Orchestrator should return a Pod IP when READY")
                     .isNotEmpty();
 
-            System.out.println("Orchestrator reports READY. IP=" + response.getPodIp());
+            System.out.println("Orchestrator reports READY. IP=" + response.getServerAddress());
 
             // 3. Verify in K8s
             System.out.println("3. Verifying Pod in K8s...");

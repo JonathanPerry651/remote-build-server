@@ -77,10 +77,9 @@ public class ProcessLifecycleTest {
         assertThat(resp2.getServerAddress()).contains("127.0.0.1");
 
         // --- Step 3: Change Session (Delete & Recreate) ---
-        String sessionId2 = "session2";
-        // Mock DB: shows old session
         // --- Step 3: Change Session (Delete & Recreate) ---
         String sessionId2 = "session2";
+        // Mock DB: shows old session
 
         GetServerRequest req2 = GetServerRequest.newBuilder()
                 .setUserId(userId).setRepoHash(repoHash).setSessionId(sessionId2).build();
@@ -114,5 +113,4 @@ public class ProcessLifecycleTest {
     }
 
     // Mock helpers removed
-}
 }

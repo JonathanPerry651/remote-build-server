@@ -1,17 +1,13 @@
 package com.example.rbs;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.rbs.proto.GetServerRequest;
 import com.example.rbs.proto.GetServerResponse;
-import com.google.cloud.spanner.DatabaseClient;
-import com.google.cloud.spanner.ReadContext;
-import com.google.cloud.spanner.ResultSet;
-import com.google.cloud.spanner.Statement;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.grpc.stub.StreamObserver;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,29 +19,22 @@ public class OrchestratorServiceTest {
 
     @Test
     public void testGetServer_ExistingReadySession() {
-        DatabaseClient dbClient = mock(DatabaseClient.class);
-        KubernetesClient k8sClient = mock(KubernetesClient.class);
-
-        // Mock Spanner behavior
-        ReadContext readContext = mock(ReadContext.class);
-        when(dbClient.singleUse()).thenReturn(readContext);
-        ResultSet resultSet = mock(ResultSet.class);
-        when(readContext.executeQuery(any(Statement.class))).thenReturn(resultSet);
+        SessionRepository sessionRepo = mock(SessionRepository.class);
+        ComputeService computeService = mock(ComputeService.class);
 
         // Simulate existing session found
-        when(resultSet.next()).thenReturn(true);
-        when(resultSet.getString("SessionId")).thenReturn("session123");
-        when(resultSet.isNull("PodIP")).thenReturn(false);
-        when(resultSet.getString("PodIP")).thenReturn("10.0.0.1");
-        when(resultSet.isNull("Status")).thenReturn(false);
-        when(resultSet.getString("Status")).thenReturn("READY");
+        SessionRepository.BuildSession session = new SessionRepository.BuildSession("session123", "10.0.0.1", "READY");
+        when(sessionRepo.getSession(anyString(), anyString())).thenReturn(session);
 
-        OrchestratorService service = new OrchestratorService(dbClient, k8sClient);
+        ComputeService.ContainerStatus containerStatus = new ComputeService.ContainerStatus("READY", "10.0.0.1");
+        when(computeService.getContainerStatus(anyString(), anyString())).thenReturn(containerStatus);
+
+        OrchestratorService service = new OrchestratorService(sessionRepo, computeService);
 
         GetServerRequest request = GetServerRequest.newBuilder()
                 .setUserId("testuser")
                 .setRepoHash("hash")
-                .setSessionId("session123") // Match existing session
+                .setSessionId("session123")
                 .build();
 
         StreamObserver<GetServerResponse> responseObserver = mock(StreamObserver.class);
@@ -58,8 +47,8 @@ public class OrchestratorServiceTest {
         verify(responseObserver).onCompleted();
 
         GetServerResponse response = responseCaptor.getValue();
-        if (!"10.0.0.1".equals(response.getPodIp())) {
-            throw new RuntimeException("Expected PodIP 10.0.0.1, got " + response.getPodIp());
+        if (!"10.0.0.1".equals(response.getServerAddress())) {
+            throw new RuntimeException("Expected ServerAddress 10.0.0.1, got " + response.getServerAddress());
         }
         if (!"READY".equals(response.getStatus())) {
             throw new RuntimeException("Expected Status READY, got " + response.getStatus());

@@ -8,14 +8,19 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	pb "github.com/example/remote-build-server/agent/src/main/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -169,6 +174,22 @@ func (s *server) ExecuteCommand(stream pb.Runner_ExecuteCommandServer) error {
 	return nil
 }
 
+func resolveBazelSocket() (string, error) {
+	// 1. Ask Bazel for the output base (this also starts the server if needed)
+	cmd := exec.Command("bazel", "info", "output_base")
+	// Inherit environment to ensure we pick up the same workspace config
+	cmd.Env = os.Environ()
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to run bazel info: %w", err)
+	}
+	outputBase := strings.TrimSpace(string(out))
+
+	// 2. Construct socket path
+	// Standard Bazel layout: <output_base>/server/server.socket
+	return filepath.Join(outputBase, "server", "server.socket"), nil
+}
+
 func initTracer() func(context.Context) error {
 	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
@@ -207,17 +228,128 @@ func main() {
 		port = "9011"
 	}
 
+	// Generic Forwarding Logic
+	opts := []grpc.ServerOption{
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			// Extract context for tracing
+			ctx := stream.Context()
+			md, ok := metadata.FromIncomingContext(ctx)
+			if ok {
+				ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(md))
+			}
+			ctx, span := tracer.Start(ctx, "ProxyForward")
+			defer span.End()
+
+			return forwardToBazel(ctx, stream)
+		}),
+	}
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		slog.Error("failed to listen", "error", err)
 		os.Exit(1)
 	}
-	s := grpc.NewServer()
+	s := grpc.NewServer(opts...)
+
+	// Still register Runner for exec command?
+	// The user wants "Proxy" functionality.
+	// If we use UnknownServiceHandler, it catches everything NOT registered.
+	// So we can still register RunnerServer!
 	pb.RegisterRunnerServer(s, &server{})
 	reflection.Register(s)
+
 	slog.Info("Agent listening", "port", port)
 	if err := s.Serve(lis); err != nil {
 		slog.Error("failed to serve", "error", err)
 		os.Exit(1)
 	}
+}
+
+func forwardToBazel(ctx context.Context, serverStream grpc.ServerStream) error {
+	// 1. Resolve Bazel Socket
+	socketPath, err := resolveBazelSocket()
+	if err != nil {
+		slog.Error("failed to resolve bazel socket", "error", err)
+		return err
+	}
+
+	// 2. Connect to Bazel
+	// Using "unix://" + path
+	dialTarget := "unix://" + socketPath
+	conn, err := grpc.Dial(dialTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		slog.Error("failed to connect to bazel", "target", dialTarget, "error", err)
+		return err
+	}
+	defer conn.Close()
+
+	// 3. Extract Method
+	methodName, ok := grpc.Method(serverStream.Context()) // Use original context for method
+	if !ok {
+		return fmt.Errorf("failed to extract method")
+	}
+
+	// 4. Trace Attributes
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(attribute.String("grpc.method", methodName))
+
+	// 5. Forward with Empty
+	// Copy MD
+	md, _ := metadata.FromIncomingContext(serverStream.Context())
+	outCtx := metadata.NewOutgoingContext(ctx, md)
+
+	desc := &grpc.StreamDesc{
+		ServerStreams: true,
+		ClientStreams: true,
+	}
+	clientStream, err := conn.NewStream(outCtx, desc, methodName)
+	if err != nil {
+		return fmt.Errorf("failed to start bazel stream: %w", err)
+	}
+
+	errChan := make(chan error, 2)
+
+	// Server -> Bazel
+	go func() {
+		for {
+			var frame emptypb.Empty
+			if err := serverStream.RecvMsg(&frame); err != nil {
+				if err != io.EOF {
+					errChan <- err
+				}
+				clientStream.CloseSend()
+				return
+			}
+			if err := clientStream.SendMsg(&frame); err != nil {
+				errChan <- err
+				return
+			}
+		}
+	}()
+
+	// Bazel -> Server
+	go func() {
+		md, err := clientStream.Header()
+		if err == nil {
+			serverStream.SendHeader(md)
+		}
+		for {
+			var frame emptypb.Empty
+			if err := clientStream.RecvMsg(&frame); err != nil {
+				if err != io.EOF {
+					errChan <- err
+				} else {
+					serverStream.SetTrailer(clientStream.Trailer())
+					errChan <- nil
+				}
+				return
+			}
+			if err := serverStream.SendMsg(&frame); err != nil {
+				errChan <- err
+				return
+			}
+		}
+	}()
+
+	return <-errChan
 }

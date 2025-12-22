@@ -6,8 +6,9 @@ go_library(
     importpath = "github.com/example/remote-build-server/jbazel/src",
     visibility = ["//visibility:private"],
     deps = [
-        "//agent:runner_go_proto",
         "//orchestrator:orchestrator_go_grpc",
+        "@com_github_bazelbuild_bazelisk//core",
+        "@com_github_bazelbuild_bazelisk//repositories",
         "@com_github_spf13_cobra//:cobra",
         "@io_opentelemetry_go_otel//:otel",
         "@io_opentelemetry_go_otel//propagation",
@@ -21,7 +22,7 @@ go_library(
 )
 
 go_binary(
-    name = "src",
+    name = "jbazel",
     embed = [":src_lib"],
     visibility = ["//visibility:public"],
 )

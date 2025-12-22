@@ -41,9 +41,31 @@ sh_test(
     srcs = ["mirror_test.sh"],
     data = [
         "//agent",
-        "//jbazel",
+        "//e2e/test_tools:verifier",
+        "//jbazel/src:jbazel",
         "//orchestrator:server",
+        "//proxy",
         "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "exclusive",
+        "local",
+        "manual",
+    ],
+)
+
+sh_test(
+    name = "proxy_test",
+    srcs = ["proxy_test.sh"],
+    args = [
+        "$(location //agent:agent)",
+        "$(location //proxy:proxy)",
+        "$(location //e2e/test_tools:verifier)",
+    ],
+    data = [
+        "//agent",
+        "//e2e/test_tools:verifier",
+        "//proxy",
     ],
     tags = [
         "exclusive",

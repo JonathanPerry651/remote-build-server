@@ -50,15 +50,15 @@ java_library(
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
-        "@maven//:javax_annotation_javax_annotation_api",
-        "@maven//:org_projectlombok_lombok",
-        "@maven//:org_slf4j_slf4j_simple",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_logging",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:io_opentelemetry_opentelemetry_exporter_logging",
-        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:org_projectlombok_lombok",
+        "@maven//:org_slf4j_slf4j_simple",
     ],
 )
 
@@ -83,6 +83,7 @@ java_test(
         "@maven//:io_fabric8_kubernetes_client_api",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_mockito_mockito_core",
     ],
 )
 
@@ -91,6 +92,12 @@ java_test(
     srcs = [
         "src/test/java/com/example/rbs/ProcessLifecycleTest.java",
     ],
+    data = [
+        "//agent",
+    ],
+    env = {
+        "AGENT_BINARY": "$(location //agent:agent)",
+    },
     test_class = "com.example.rbs.ProcessLifecycleTest",
     deps = [
         ":orchestrator_java_proto",

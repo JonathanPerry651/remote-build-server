@@ -4,15 +4,18 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/bazelbuild/bazelisk/core"
+	"github.com/bazelbuild/bazelisk/repositories"
+
 	"time"
 
-	runnerpb "github.com/example/remote-build-server/agent/src/main/proto"
 	orchpb "github.com/example/remote-build-server/orchestrator/src/main/proto"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -117,6 +120,19 @@ func runProxy(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// Configuration
+	proxyBin := os.Getenv("JBAZEL_PROXY_BIN")
+	if proxyBin == "" {
+		// Fallback or error?
+		// For E2E we set it.
+		log.Println("Warning: JBAZEL_PROXY_BIN not set, assuming 'proxy' in PATH")
+		proxyBin = "proxy"
+	}
+	bazelBin := os.Getenv("JBAZEL_BAZEL_BIN")
+	if bazelBin == "" {
+		bazelBin = "bazel"
+	}
+
 	// 1. Workspace Discovery & Hashing
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -127,10 +143,8 @@ func runProxy(cmd *cobra.Command, args []string) {
 		log.Fatalf("Could not find workspace root: %v", err)
 	}
 	repoHash := fmt.Sprintf("%x", md5.Sum([]byte(workspaceRoot)))
-	userId := "user1" // Fixed for Phase 0
+	userId := "user1"
 	sessionId := "session-" + fmt.Sprintf("%d", time.Now().Unix())
-
-	// log.Printf("Workspace: %s, Hash: %s", workspaceRoot, repoHash) // Silent unless debug?
 
 	// 2. Orchestrator Interaction (Get Pod Address)
 	conn, err := grpc.Dial(orchAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -140,11 +154,11 @@ func runProxy(cmd *cobra.Command, args []string) {
 	defer conn.Close()
 	orchClient := orchpb.NewOrchestratorClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // Long timeout for provisioning
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Polling Loop for Server Readiness
 	var serverAddr string
+	// Polling
 	for {
 		resp, err := orchClient.GetServer(ctx, &orchpb.GetServerRequest{
 			UserId:     userId,
@@ -160,153 +174,114 @@ func runProxy(cmd *cobra.Command, args []string) {
 			serverAddr = resp.GetServerAddress()
 			break
 		}
-		// log.Printf("Waiting for server... Status: %s", resp.GetStatus())
 		time.Sleep(1 * time.Second)
 	}
 
-	// 3. Connect to Agent
-	// log.Printf("Connecting to Agent at %s", serverAddr)
-	agentConn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to dial agent: %v", err)
+	// 3. Start Local Proxy
+	// Prepare Output Base for Proxy Socket
+	// We use a custom output base to control the socket location
+	// or we use the default bazel one?
+	// To reliably intercept, we should probably force an output base or find the existing one.
+	// For this implementation, we force a specific output base or intercept standard one?
+	// The Architecture says: "The proxy listens on a UNIX domain socket... located at <output_base>/server/server.socket".
+	// If we want to use the USER'S bazel, we should respect their output base.
+	// But getting it is hard (bazel info output_base runs server).
+	// Strategy:
+	// Use a JBAZEL specific output base to ensure isolation and interception.
+	// e.g. ~/.cache/jbazel/<hash>
+	homeDir, _ := os.UserHomeDir()
+	jbazelBase := filepath.Join(homeDir, ".cache", "jbazel", repoHash)
+	jbazelBase, _ = filepath.Abs(jbazelBase) // Ensure absolute path for URI
+	os.MkdirAll(filepath.Join(jbazelBase, "server"), 0755)
+
+	socketPath := filepath.Join(jbazelBase, "server", "server.socket")
+
+	// Start Proxy
+	// We need to ensure no existing server or proxy is running on this socket?
+	// Or we just kill it?
+	// Bazel client respects `server/server.pid.txt`.
+	// If we are the server, we should probably write our PID?
+	// Or let the Proxy manage it.
+	// Use `proxy` binary.
+	proxyCmd := exec.Command(proxyBin, "--listen-path", socketPath, "--target-addr", serverAddr)
+	proxyCmd.Stdout = os.Stdout
+	proxyCmd.Stderr = os.Stderr
+	if err := proxyCmd.Start(); err != nil {
+		log.Fatalf("Failed to start proxy: %v", err)
 	}
-	defer agentConn.Close()
-
-	runnerClient := runnerpb.NewRunnerClient(agentConn)
-
-	// 4. Execute Command Stream
-	stream, err := runnerClient.ExecuteCommand(ctx)
-	if err != nil {
-		log.Fatalf("Failed to start command stream: %v", err)
-	}
-
-	// Send Init
-	wdRel, _ := filepath.Rel(workspaceRoot, cwd) // Run in relative dir inside workspace
-	// If we can'trel, just use "."
-	if wdRel == "" || strings.HasPrefix(wdRel, "..") {
-		wdRel = "."
-	}
-
-	// The agent expects working_dir. Current Agent impl sets Cmd.Dir = initReq.WorkingDirectory.
-	// Spec says: "Physically... /data/alice/repo... Bazel sees /work/src".
-	// "bwrap --bind ... /work/src".
-	// So if I am in root, I am in /work/src.
-	// If I am in subdir foo, I should be in /work/src/foo.
-	// But for the agent (running in the pod, OUTSIDE bwrap initially?), it spawns the command.
-	// Phase 0 Agent spawns "exec.Command" directly.
-	// So Directory should be the host path if running `sleep` or `bazel` locally.
-	// AND `bazel` works in the workspace.
-	// If Agent runs `bazel`, it needs to be in the workspace dir.
-	// Where is the workspace in the Agent's env?
-	// Using ProcessComputeService: We spawn agent locally.
-	// We should probably pass the workspace root to the Agent, OR implicitly assume it runs in the workspace?
-	// The Agent is spawned by ProcessComputeService. It probably runs in the CWD of the test or /tmp.
-	// CRITICAL: For Mirror Test (ProcessComputeService), the Agent needs to run WHERE THE SOURCE IS.
-	// `jbazel` knows only local path.
-	// `agent` is spawned by `Orchestrator` which is local.
-	// The `Orchestrator` knows `repoHash` but not the path?
-	// Wait, Spec says: "Workspace Discovery... Generates Hash... Orchestrator... Creates Pod... Mounts HostPath".
-	// In `kind_test`, we mounted host path.
-	// In `ProcessComputeService` test, we spawn `agent`.
-	// The `agent` needs access to the source code.
-	// `jbazel` is finding existing source.
-	// The `agent` should be started such that it can access mapped source.
-	// BUT `ProcessComputeService` spawns `agent` without knowing the source path?
-	// Ah, `ProcessComputeService.createContainer` receives `userId` and `repoHash`.
-	// It doesn't know the physical path on the client machine unless we tell it.
-	// BUT `mirror_test.sh` runs everything locally.
-	// Orchestrator needs to know where the repo is to tell Agent? Or Agent needs to be told?
-	// `jbazel` sends command.
-	// If `agent` just executes `bazel`, `bazel` needs to be in a workspace.
-	// For `local-mode` test, `agent` could use `initReq.WorkingDirectory`?
-	// `jbazel` sends absolute path?
-	// If `jbazel` sends absolute path `/tmp/work/src`, and `agent` is local, it works!
-	// So let's send Absolute Path in InitRequest for `local-mode` compatibility.
-	// For real Pods, `jbazel` path `/Users/jonathan...` won't match Pod path `/work/src`.
-	// So `jbazel` should really send RELATIVE path from workspace root, and Agent should prepend its mount point.
-	// BUT for Phase 0 Local Process test, Absolute works if Agent is local.
-	// Let's send BOTH: `working_directory` (process specific) and `workspace_relative_path`.
-	// `runner.proto`: `working_directory`.
-	// I will send valid absolute path for this test.
-
-	err = stream.Send(&runnerpb.ExecuteRequest{
-		Input: &runnerpb.ExecuteRequest_Init{
-			Init: &runnerpb.InitRequest{
-				Args: append([]string{"bazel"}, targetArgs...), // Hardcode bazel binary call?
-				Env: map[string]string{
-					"USER": "test", // Basic env
-				},
-				WorkingDirectory: cwd, // Pass local CWD. Works for Local Process Agent.
-			},
-		},
-	})
-	if err != nil {
-		log.Fatalf("Failed to send init: %v", err)
-	}
-
-	// Pipe IO
-	waitc := make(chan struct{})
-
-	// Receiver
-	go func() {
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
-			}
-			if err != nil {
-				log.Printf("Stream recv error: %v", err)
-				close(waitc)
-				return
-			}
-
-			if chunk := in.GetStdoutChunk(); len(chunk) > 0 {
-				os.Stdout.Write(chunk)
-			}
-			if chunk := in.GetStderrChunk(); len(chunk) > 0 {
-				os.Stderr.Write(chunk)
-			}
-			if exitCode := in.GetExitCode(); in.Output != nil { // Check oneof type?
-				// Oneof logic: GetExitCode might return 0 if not set?
-				// Proto generated code usually has getters that return default.
-				// We should check the wrapper type. But `GetExitCode` is safe if we trust the loop breaks on EOF.
-				// Actually the server sends ExitCode then closes?
-				// Or sends ExitCode and we exit?
-				// Assume we get ExitCode message, then continue?
-				// We need to capture it.
-				// Best effort: if we see ExitCode struct, save it and exit loop?
-				// Stream usually closes after exit code.
-				// Let's rely on receiving it.
-				_ = exitCode
-				if _, ok := in.Output.(*runnerpb.ExecuteResponse_ExitCode); ok {
-					os.Exit(int(exitCode))
-				}
-			}
-		}
+	defer func() {
+		proxyCmd.Process.Kill()
+		proxyCmd.Wait()
 	}()
 
-	// Sender (Stdin)
-	go func() {
-		buf := make([]byte, 4096)
-		for {
-			n, err := os.Stdin.Read(buf)
-			if err == io.EOF {
-				stream.CloseSend()
-				return
-			}
-			if n > 0 {
-				stream.Send(&runnerpb.ExecuteRequest{
-					Input: &runnerpb.ExecuteRequest_StdinChunk{StdinChunk: buf[:n]},
-				})
-			}
+	// Wait for socket to appear
+	for i := 0; i < 50; i++ {
+		if _, err := os.Stat(socketPath); err == nil {
+			break
 		}
-	}()
+		time.Sleep(100 * time.Millisecond)
+	}
 
-	<-waitc
+	// 4. Exec Local Bazel Client
+	// Point it to our output base
+	// We append our output base arg.
+	// NOTE: output_base must be the first arg usually? "bazel --output_base=... build ..."
+	// We insert it at the beginning.
+	bazelArgs := append([]string{"--output_base=" + jbazelBase}, targetArgs...)
 
-	// Handle signals?
-	// Forwarding signals is good practice.
+	// 4. Exec Local Bazel Client via Bazelisk
+	// Convert bazelArgs to what bazelisk expects
+	// Bazelisk expects the full args including the command.
+
+	// Create Bazelisk instance
+	// We need to set the OutputBase. Bazelisk usually delegates to the underlying Bazel.
+	// We are passing --output_base to Bazel via args.
+
+	// 4. Exec Local Bazel Client
+	// If JBAZEL_BAZEL_BIN is set, use it (useful for testing/mocking).
+	// Otherwise, use Bazelisk to automatically manage/download Bazel.
+
+	if bazelBin != "bazel" {
+		// Explicit binary provided (test mode)
+		slog.Info("Running explicit bazel binary", "bin", bazelBin, "args", bazelArgs, "proxy_target", serverAddr)
+		runBazel := exec.Command(bazelBin, bazelArgs...)
+		runBazel.Stdin = os.Stdin
+		runBazel.Stdout = os.Stdout
+		runBazel.Stderr = os.Stderr
+
+		if err := runBazel.Run(); err != nil {
+			if exitError, ok := err.(*exec.ExitError); ok {
+				os.Exit(exitError.ExitCode())
+			}
+			log.Fatalf("Bazel failed: %v", err)
+		}
+		return
+	}
+
+	slog.Info("Running bazel via Bazelisk", "args", bazelArgs, "proxy_target", serverAddr)
+
+	// Since we can't easily capture exit code from bazelisk.Run if it calls os.Exit,
+	// checking standard library usage.
+	// 'core.Run' usually calls the binary.
+	// We will try using core.New().Run(args, repoRoot) concept if available,
+	// or look for the correct API.
+	// Assuming standard library usage:
+	// repositories := repositories.New()
+	// b := core.New(repositories)
+	// exitCode, err := b.Run(bazelArgs, workspaceRoot)
+
+	// Initializing Repositories like bazelisk main
+	gcs := &repositories.GCSRepo{}
+	config := core.MakeDefaultConfig()
+	gitHub := repositories.CreateGitHubRepo(config.Get("BAZELISK_GITHUB_TOKEN"))
+	// Fetch LTS releases & candidates, rolling releases and Bazel-at-commits from GCS, forks from GitHub.
+	repos := core.CreateRepositories(gcs, gitHub, gcs, gcs, true)
+
+	exitCode, err := core.RunBazeliskWithArgsFuncAndConfig(func(string) []string { return bazelArgs }, repos, config)
+	if err != nil {
+		log.Printf("Bazelisk failed: %v", err)
+	}
+	os.Exit(exitCode)
 }
 
 func findWorkspaceRoot(startDir string) (string, error) {
