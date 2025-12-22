@@ -74,38 +74,3 @@ sequenceDiagram
     A-->>J: Stream Output
 ```
 
-## 3. Intended Final State (Production)
-
-This runs in a production Kubernetes cluster. The Client (`jbazel`) runs on the developer's laptop, connecting to a public endpoint for the Orchestrator, but tunneling or directly connecting to Agents for build execution.
-
-```mermaid
-graph TD
-    subgraph "Developer Machine"
-        Client[jBazel CLI]
-        Source[Source Code]
-    end
-
-    subgraph "Production Cluster (GKE)"
-        Ingress[Load Balancer / Ingress]
-        
-        subgraph "Control Plane"
-            Orch[Orchestrator Service]
-            DB[(Spanner Database)]
-        end
-        
-        subgraph "Build Plane (Nodes)"
-            AgentPod1["Agent Pod (User A)"]
-            AgentPod2["Agent Pod (User B)"]
-        end
-    end
-
-    Client -- "gRPC (GetServer)" --> Ingress
-    Ingress --> Orch
-    Orch -- Read/Write State --> DB
-    Orch -- K8s API --> AgentPod1
-    
-    Client -- "gRPC (ExecuteCommand)" --> AgentPod1
-    
-    note["Note: Direct connection to Agent \n may require Proxy/Tunnel if not \n on same VPC"]
-    Client -.-> note
-```
