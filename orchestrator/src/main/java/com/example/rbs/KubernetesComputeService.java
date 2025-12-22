@@ -2,6 +2,8 @@ package com.example.rbs;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
+import io.fabric8.kubernetes.api.model.ServiceAccountBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import java.util.logging.Logger;
 
@@ -14,67 +16,94 @@ public class KubernetesComputeService implements ComputeService {
     }
 
     @Override
-    public String createContainer(String userId, String repoHash, String sourcePath) {
-        String podName = getPodName(userId, repoHash);
-        logger.info("Creating pod: " + podName + " (source: " + sourcePath + ")");
+    public String createContainer(String userId, String repoHash, String sourcePath,
+            java.util.List<String> startupOptions) {
+        // TODO: Implement startupOptions for Kubernetes
+        // For now, ignoring them in K8s implementation until next phase
+        String sanitizedUser = userId.toLowerCase().replaceAll("[^a-z0-9]", "");
+        String namespace = sanitizedUser + "-rbs-" + repoHash;
+        String serviceAccountName = "sa-" + sanitizedUser;
+        String podName = "bazel-server"; // Fixed name since we are in a unique namespace
 
-        // In real K8s, we would Use sourcePath for HostPath volume definition
-        // For now, ignoring it as per instructions for Phase 0 execution.
+        logger.info("Ensuring namespace: " + namespace);
+        createNamespace(namespace);
+        createServiceAccount(namespace, serviceAccountName);
+
+        logger.info("Creating pod: " + podName + " in namespace " + namespace + " (source: " + sourcePath + ")");
 
         // Define Pod
         Pod pod = new PodBuilder()
                 .withNewMetadata()
                 .withName(podName)
+                .withNamespace(namespace)
                 .addToLabels("app", "bazel-build")
                 .addToLabels("user", userId)
                 .endMetadata()
                 .withNewSpec()
+                .withServiceAccountName(serviceAccountName)
+                .addNewVolume()
+                .withName("workspace-volume")
+                .withNewHostPath()
+                .withPath(sourcePath)
+                .endHostPath()
+                .endVolume()
                 .addNewContainer()
                 .withName("bazel-server")
-                .withImage("busybox") // Placeholder image
-                .withCommand("sh", "-c", "while true; do echo 'Bazel Server Running'; sleep 10; done")
+                .withImage("localhost/agent:latest")
+                .withImagePullPolicy("Never") // Use local image for Kind/Minikube
+                .addNewVolumeMount()
+                .withName("workspace-volume")
+                .withMountPath(sourcePath) // Mount at same path as host
+                .endVolumeMount()
+                .addNewEnv()
+                .withName("PORT")
+                .withValue("9011") // Standard agent port
+                .endEnv()
+                .addNewEnv()
+                .withName("BAZEL_STARTUP_OPTIONS")
+                .withValue(startupOptions != null ? String.join("|||", startupOptions) : "")
+                .endEnv()
+                // .withCommand("sh", "-c", "while true; do echo 'Bazel Server Running'; sleep
+                // 10; done") // Debug
                 .endContainer()
                 .endSpec()
                 .build();
 
         // Create Pod
         try {
-            k8sClient.pods().inNamespace("default").resource(pod).create();
+            k8sClient.pods().inNamespace(namespace).resource(pod).create();
             logger.info("Pod creation requested for: " + podName);
         } catch (Exception e) {
             logger.severe("Failed to create pod: " + e.getMessage());
             // It might already exist?
         }
-        return podName;
+        return podName; // Returning podName, but caller implies it might expect ID?
+        // Actually, existing caller expects a container ID.
+        // In namespace isolation, (namespace, podName) is key.
+        // Returning namespace might be more appropriate if we assume 1 pod/ns.
+        // But for backward compat, returning podName.
+        // Wait, getContainerStatus needs to know where to look.
+        // I should stick to a convention where I can derive namespace from
+        // userId/repoHash in getContainerStatus too.
     }
 
     @Override
     public void deleteContainer(String userId, String repoHash) {
-        String podName = getPodName(userId, repoHash);
-        logger.info("Deleting pod: " + podName);
+        String namespace = getNamespaceName(userId, repoHash);
+        logger.info("Deleting namespace: " + namespace);
         try {
-            k8sClient.pods().inNamespace("default").withName(podName).withGracePeriod(0).delete();
-            // Wait for it to be confirmed deleted to avoid race condition on immediate
-            // recreate
-            for (int i = 0; i < 30; i++) {
-                if (k8sClient.pods().inNamespace("default").withName(podName).get() == null) {
-                    break;
-                }
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
+            k8sClient.namespaces().withName(namespace).withGracePeriod(0).delete();
+            // Wait for it to be confirmed deleted
         } catch (Exception e) {
-            logger.warning("Error deleting pod: " + e.getMessage());
+            logger.warning("Error deleting namespace: " + e.getMessage());
         }
     }
 
     @Override
     public ContainerStatus getContainerStatus(String userId, String repoHash) {
-        String podName = getPodName(userId, repoHash);
-        Pod pod = k8sClient.pods().inNamespace("default").withName(podName).get();
+        String namespace = getNamespaceName(userId, repoHash);
+        String podName = "bazel-server";
+        Pod pod = k8sClient.pods().inNamespace(namespace).withName(podName).get();
 
         if (pod == null) {
             return null;
@@ -98,8 +127,24 @@ public class KubernetesComputeService implements ComputeService {
         return new ContainerStatus(status, ip);
     }
 
-    private String getPodName(String userId, String repoHash) {
-        // Sanitize userId
-        return "bazel-" + userId.toLowerCase().replaceAll("[^a-z0-9]", "") + "-" + repoHash;
+    private String getNamespaceName(String userId, String repoHash) {
+        String sanitizedUser = userId.toLowerCase().replaceAll("[^a-z0-9]", "");
+        return sanitizedUser + "-rbs-" + repoHash;
+    }
+
+    private void createNamespace(String namespace) {
+        if (k8sClient.namespaces().withName(namespace).get() == null) {
+            k8sClient.namespaces().resource(new io.fabric8.kubernetes.api.model.NamespaceBuilder()
+                    .withNewMetadata().withName(namespace).endMetadata().build()).create();
+        }
+    }
+
+    private void createServiceAccount(String namespace, String saName) {
+        if (k8sClient.serviceAccounts().inNamespace(namespace).withName(saName).get() == null) {
+            k8sClient.serviceAccounts().inNamespace(namespace)
+                    .resource(new io.fabric8.kubernetes.api.model.ServiceAccountBuilder()
+                            .withNewMetadata().withName(saName).endMetadata().build())
+                    .create();
+        }
     }
 }

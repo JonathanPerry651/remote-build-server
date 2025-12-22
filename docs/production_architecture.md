@@ -44,7 +44,8 @@ graph TD
     Filestore -- "NFS Mount (PVC)" --- AgentPod2
     
     %% Execution Flow
-    Client -- "gRPC (ExecuteCommand)\nTunnel/Proxy" --> AgentPod1
+    Client -- "Spawn Process" --> Proxy[Proxy (Server Mode)]
+    Proxy -- "gRPC/Tunnel" --> AgentPod1
     
     %% Data Sync Idea (Implied)
     Client -.->|Sync Source| Filestore

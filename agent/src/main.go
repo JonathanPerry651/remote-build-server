@@ -176,13 +176,35 @@ func (s *server) ExecuteCommand(stream pb.Runner_ExecuteCommandServer) error {
 
 func resolveBazelSocket() (string, error) {
 	// 1. Ask Bazel for the output base (this also starts the server if needed)
-	cmd := exec.Command("bazel", "info", "output_base")
+	args := []string{}
+
+	// Inject Startup Options
+	startupOptsEnv := os.Getenv("BAZEL_STARTUP_OPTIONS")
+	if startupOptsEnv != "" {
+		opts := strings.Split(startupOptsEnv, "|||")
+		args = append(args, opts...)
+	}
+
+	args = append(args, "info", "output_base")
+
+	cmd := exec.Command("bazel", args...)
 	// Inherit environment to ensure we pick up the same workspace config
 	cmd.Env = os.Environ()
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to run bazel info: %w", err)
+		slog.Error("failed to run bazel info", "error", err, "output", string(out))
+		return "", fmt.Errorf("failed to run bazel info: %v\nOutput: %s", err, string(out))
 	}
+	// Output might contain startup logs (if CombinedOutput), so we need to be careful?
+	// But `bazel info` prints info to stdout. Stderr is logs.
+	// If successful, `out` contains info.
+	// We want just stdout for success case?
+	// CombinedOutput mixes them.
+	// Let's stick to Output() but capture Stderr separately?
+	// Or just use CombinedOutput for debugging error.
+
+	// Actually, if I use CombinedOutput, I might pollute the outputBase parsing if there are warnings!
+	// Revert to Output() but capture logs if error.
 	outputBase := strings.TrimSpace(string(out))
 
 	// 2. Construct socket path

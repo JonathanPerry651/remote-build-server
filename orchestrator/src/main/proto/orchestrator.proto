@@ -15,6 +15,7 @@ message GetServerRequest {
   string repo_hash = 2;
   string session_id = 3;
   string source_path = 4;
+  repeated string startup_options = 5;
 }
 
 message GetServerResponse {

@@ -6,9 +6,13 @@ go_library(
     importpath = "github.com/example/remote-build-server/proxy",
     visibility = ["//visibility:private"],
     deps = [
+        "//orchestrator:orchestrator_go_grpc",
         "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//credentials/insecure",
         "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_grpc//encoding",
         "@org_golang_google_protobuf//types/known/emptypb",
     ],
 )

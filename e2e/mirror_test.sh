@@ -59,6 +59,7 @@ ORCHESTRATOR_BINARY=$(readlink -f "$ORCHESTRATOR_BINARY")
 JBAZEL_BINARY=$(readlink -f "$JBAZEL_BINARY")
 PROXY_BINARY=$(readlink -f "$PROXY_BINARY")
 VERIFIER_BINARY=$(readlink -f "$VERIFIER_BINARY")
+export VERIFIER_BINARY="$VERIFIER_BINARY"
 
 export AGENT_BINARY="$AGENT_BINARY"
 # Jbazel needs to know where Proxy is
@@ -67,11 +68,36 @@ export ORCHESTRATOR_ADDR="localhost:50051"
 
 # Create a temporary workspace
 WORK_DIR=$(mktemp -d)
-trap "rm -rf $WORK_DIR" EXIT
+function cleanup() {
+    echo "Cleaning up..."
+    # kill_servers
+    if [ -d "$WORK_DIR/remote_output_base" ]; then
+         echo "--- SERVER LOG ---"
+         cat "$WORK_DIR/remote_output_base/server.log" || true
+         echo "------------------"
+    fi
+    rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
 
 mkdir -p "$WORK_DIR/src/main"
 touch "$WORK_DIR/MODULE.bazel"
 echo 'print("Hello from remote bazel")' > "$WORK_DIR/src/main/BUILD"
+
+# SERVER_JAVA from rbs_javabase
+SERVER_JAVA="./bazel-bin/tools/rbs_javabase/bin/java"
+if [ ! -f "$SERVER_JAVA" ]; then
+    SERVER_JAVA="./tools/rbs_javabase/bin/java"
+fi
+# Resolve via runfiles if possible (omitted for brevity, relying on bazel-bin or sibling layout)
+if [ ! -f "$SERVER_JAVA" ]; then
+    echo "Server Java not found at $SERVER_JAVA"
+    # Fallback to finding it in the runfiles directory if we are running under bazel test
+    find . -name java -path "*/tools/rbs_javabase/bin/java"
+    exit 1
+fi
+SERVER_JAVA=$(readlink -f "$SERVER_JAVA")
+export SERVER_JAVA="$SERVER_JAVA"
 
 # MOCK LOCAL BAZEL CLIENT
 # This replaces real "bazel". It receives --output_base, finds the socket, and tests connection.
@@ -82,31 +108,57 @@ cat > "$MOCK_BAZEL_CLIENT" <<EOF
 # Mock Bazel Client
 # Expected usage: bazel --output_base=... command ...
 OUTPUT_BASE=""
+SERVER_JAVABASE=""
+
 for i in "\$@"; do
     if [[ \$i == --output_base=* ]]; then
         OUTPUT_BASE="\${i#*=}"
     fi
+    if [[ \$i == --server_javabase=* ]]; then
+        SERVER_JAVABASE="\${i#*=}"
+    fi
 done
 
 if [ -z "\$OUTPUT_BASE" ]; then
-    echo "MockClient: No output base provided"
+    # Jbazel might default the output base or rely on Bazel default.
+    # In this mock, we create a default if not provided.
+    OUTPUT_BASE="\$PWD/default_output_base"
+    mkdir -p "\$OUTPUT_BASE"
+    echo "MockClient: Defaulting to output base \$OUTPUT_BASE"
+fi
+
+if [ -n "\$SERVER_JAVABASE" ]; then 
+    # Simulate Bazel starting the server
+    # Real Bazel executes: java ... (wrapped)
+    # The wrapper expects: --output_base, --workspace_directory
+    echo "MockClient: Launching Server Javabase..."
+    nohup "$SERVER_JAVA" --output_base="\$OUTPUT_BASE" --workspace_directory="\$PWD" > "\$OUTPUT_BASE/server.log" 2>&1 &
+fi
+
+# Wait for command_port (TCP)
+COMMAND_PORT_FILE="\$OUTPUT_BASE/server/command_port"
+
+# Wait loop
+for i in {1..50}; do
+    if [ -f "\$COMMAND_PORT_FILE" ]; then
+        break
+    fi
+    sleep 0.1
+done
+
+if [ ! -f "\$COMMAND_PORT_FILE" ]; then
+    echo "MockClient: command_port file not found at \$COMMAND_PORT_FILE"
+    if [ -f "\$OUTPUT_BASE/server.log" ]; then
+        echo "Server Log:"
+        cat "\$OUTPUT_BASE/server.log"
+    fi
     exit 1
 fi
 
-SOCKET="\$OUTPUT_BASE/server/server.socket"
-
-# Wait for socket availability?
-# jbazel waits for proxy.
-# So socket should be there.
-
-if [ ! -S "\$SOCKET" ]; then
-    echo "MockClient: Socket not found at \$SOCKET"
-    exit 1
-fi
-
-echo "MockClient: Connecting to \$SOCKET"
+PORT=\$(cat "\$COMMAND_PORT_FILE")
+echo "MockClient: Connecting to localhost:\$PORT"
 # Use Verifier Client logic
-"$VERIFIER_BINARY" --mode client --target "unix://\$SOCKET"
+"\$VERIFIER_BINARY" --mode client --target "localhost:\$PORT"
 exit \$?
 EOF
 chmod +x "$MOCK_BAZEL_CLIENT"
@@ -138,6 +190,11 @@ MOCK_BAZEL_SERVER_BIN="$WORK_DIR/bin/bazel"
 mkdir -p "$(dirname "$MOCK_BAZEL_SERVER_BIN")"
 cat > "$MOCK_BAZEL_SERVER_BIN" <<EOF
 #!/bin/bash
+# Skip startup options
+while [[ "\$1" == -* ]]; do
+  shift
+done
+
 if [ "\$1" == "info" ] && [ "\$2" == "output_base" ]; then
     echo "$WORK_DIR/remote_output_base"
 else

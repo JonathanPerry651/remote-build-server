@@ -97,6 +97,17 @@ oci.pull(
 )
 use_repo(oci, "distroless_java")
 
+oci.pull(
+    name = "distroless_static",
+    image = "gcr.io/distroless/static",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+    tag = "latest",
+)
+use_repo(oci, "distroless_static")
+
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.23.1")
 

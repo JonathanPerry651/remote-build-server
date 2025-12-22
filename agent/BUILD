@@ -49,3 +49,20 @@ go_binary(
     embed = [":agent_lib"],
     visibility = ["//visibility:public"],
 )
+
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+pkg_tar(
+    name = "agent_layer",
+    srcs = [":agent"],
+    package_dir = "/app",
+)
+
+oci_image(
+    name = "image",
+    base = "@distroless_static",
+    entrypoint = ["/app/agent"],
+    tars = [":agent_layer"],
+    visibility = ["//visibility:public"],
+)

@@ -52,7 +52,8 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
           computeService.deleteContainer(userId, repoHash);
 
           // Create new flow
-          handleNewSession(userId, repoHash, clientSessionId, sourcePath, responseObserver);
+          handleNewSession(userId, repoHash, clientSessionId, sourcePath, request.getStartupOptionsList(),
+              responseObserver);
           return;
         } else {
           // Match or client didn't specify. Return status.
@@ -64,7 +65,7 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
         // No session exists. Create new.
         handleNewSession(userId, repoHash,
             !clientSessionId.isEmpty() ? clientSessionId : java.util.UUID.randomUUID().toString(), sourcePath,
-            responseObserver);
+            request.getStartupOptionsList(), responseObserver);
         return;
       }
     } catch (Exception e) {
@@ -74,9 +75,9 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
   }
 
   private void handleNewSession(String userId, String repoHash, String sessionId, String sourcePath,
-      StreamObserver<GetServerResponse> responseObserver) {
+      java.util.List<String> startupOptions, StreamObserver<GetServerResponse> responseObserver) {
     // Create Pod
-    computeService.createContainer(userId, repoHash, sourcePath);
+    computeService.createContainer(userId, repoHash, sourcePath, startupOptions);
 
     // Save session 'PENDING'
     sessionRepo.saveSession(userId, repoHash, sessionId, null, "PENDING");

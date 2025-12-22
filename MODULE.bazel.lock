@@ -1297,7 +1297,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "+fknNVcNf5LHK6nar6cFZcAw6lmsQhF85bN41Ulm62Y=",
-        "usagesDigest": "yayhu0qBz5N5zLSMWyfjMtORfXfscyLwYG6t10P3e1c=",
+        "usagesDigest": "pIR4XAwEpVjACKQ5stIzk2p7fK2KIYl+9XJ3CxWwH+0=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1337,6 +1337,44 @@
                 "@@platforms//cpu:arm64": "@distroless_java_linux_arm64_v8"
               },
               "bzlmod_repository": "distroless_java",
+              "reproducible": true
+            }
+          },
+          "distroless_static_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/static",
+              "identifier": "latest",
+              "platform": "linux/amd64",
+              "target_name": "distroless_static_linux_amd64"
+            }
+          },
+          "distroless_static_linux_arm64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/static",
+              "identifier": "latest",
+              "platform": "linux/arm64",
+              "target_name": "distroless_static_linux_arm64"
+            }
+          },
+          "distroless_static": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "distroless_static",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/static",
+              "identifier": "latest",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@distroless_static_linux_amd64",
+                "@@platforms//cpu:arm64": "@distroless_static_linux_arm64"
+              },
+              "bzlmod_repository": "distroless_static",
               "reproducible": true
             }
           },

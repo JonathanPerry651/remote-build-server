@@ -140,3 +140,19 @@ genrule(
     """,
     visibility = ["//visibility:public"],
 )
+
+java_test(
+    name = "kubernetes_compute_service_test",
+    srcs = [
+        "src/test/java/com/example/rbs/KubernetesComputeServiceTest.java",
+    ],
+    test_class = "com.example.rbs.KubernetesComputeServiceTest",
+    deps = [
+        ":orchestrator_lib",
+        "@maven//:io_fabric8_kubernetes_client",
+        "@maven//:io_fabric8_kubernetes_client_api",
+        "@maven//:io_fabric8_kubernetes_model_core",
+        "@maven//:io_fabric8_kubernetes_server_mock",
+        "@maven//:junit_junit",
+    ],
+)

@@ -45,6 +45,7 @@ sh_test(
         "//jbazel/src:jbazel",
         "//orchestrator:server",
         "//proxy",
+        "//tools/rbs_javabase:rbs_javabase",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [

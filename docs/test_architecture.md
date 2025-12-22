@@ -11,6 +11,7 @@ sequenceDiagram
     autonumber
     participant T as Test Script (mirror_test.sh)
     participant J as jBazel (Client)
+    participant Pr as Proxy (Server Mode)
     participant O as Orchestrator (Local Process)
     participant P as ProcessComputeService
     participant A as Agent (Local Process)
@@ -20,7 +21,9 @@ sequenceDiagram
     T->>O: Start Orchestrator (Port 50051)
     
     T->>J: Run `jbazel build //...`
-    J->>O: GetServer(RepoHash, SourcePath)
+    J->>Pr: Spawn (as java)
+    activate Pr
+    Pr->>O: GetServer(RepoHash, SourcePath)
     O->>P: createContainer(RepoHash, SourcePath)
     P->>A: Spawn `agent` binary (subprocess)
     activate A
@@ -28,13 +31,17 @@ sequenceDiagram
     A-->>P: PID & Port
     deactivate A
     P-->>O: Agent Address (localhost:PORT)
-    O-->>J: ServerAddress (localhost:PORT)
+    O-->>Pr: ServerAddress (localhost:PORT)
     
-    J->>A: Connect (gRPC)
-    J->>A: ExecuteCommand(stdin/out/err)
-    A->>A: Run `bazel build ...` in SourcePath
-    A-->>J: Stream Output
-    A-->>J: Exit Code
+    Pr->>A: Connect (gRPC)
+    Pr-->>J: Handshake (Port, Cookie)
+    
+    J->>Pr: ExecuteCommand(gRPC)
+    Pr->>A: Forward Request
+    A->>A: Run `bazel build ...`
+    A-->>Pr: Stream Output
+    Pr-->>J: Stream Output
+    deactivate Pr
 ```
 
 ## 2. Kind E2E Test Flow

@@ -15,7 +15,8 @@ public class ProcessComputeService implements ComputeService {
     private final Map<String, Integer> ports = new ConcurrentHashMap<>();
 
     @Override
-    public String createContainer(String userId, String repoHash, String sourcePath) {
+    public String createContainer(String userId, String repoHash, String sourcePath,
+            java.util.List<String> startupOptions) {
         String containerId = getContainerId(userId, repoHash);
         logger.info("Process: Spawning process for " + containerId + " (source: " + sourcePath + ")");
 
@@ -39,6 +40,10 @@ public class ProcessComputeService implements ComputeService {
 
             ProcessBuilder pb = new ProcessBuilder(agentPath);
             pb.environment().put("PORT", String.valueOf(port));
+            if (startupOptions != null && !startupOptions.isEmpty()) {
+                String joinedOptions = String.join("|||", startupOptions);
+                pb.environment().put("BAZEL_STARTUP_OPTIONS", joinedOptions);
+            }
             if (sourcePath != null && !sourcePath.isEmpty()) {
                 // If source path is provided, set it as working directory
                 pb.directory(new java.io.File(sourcePath));

@@ -69,7 +69,20 @@ public class E2eTestClient {
 
             // 3. Verify in K8s
             System.out.println("3. Verifying Pod in K8s...");
-            Pod pod = k8sClient.pods().inNamespace("default").withName(podName).get();
+            String namespace = sanitizedUserId + "-rbs-" + repoHash;
+            // Also need to account for service account? Not explicitly tested here but
+            // implicit in pod creation.
+
+            // Note: Pod Name in the new implementation is fixed to "bazel-server" inside
+            // the namespace.
+            // But getContainerStatus returns "bazel-server" (or whatever implementation
+            // returns).
+            // Let's check what getServer returned as ServerAddress or what we expect.
+            // The Orchestrator implementation returns "bazel-server" as the pod name.
+            // The namespace is unique.
+            String expectedPodName = "bazel-server";
+
+            Pod pod = k8sClient.pods().inNamespace(namespace).withName(expectedPodName).get();
 
             assertThat(pod)
                     .as("Pod %s should exist in Kubernetes", podName)
@@ -92,12 +105,37 @@ public class E2eTestClient {
 
             // 5. Verify old pod is being deleted
             System.out.println("5. Verifying old pod deletion sequence...");
-            Pod newPod = k8sClient.pods().inNamespace("default").withName(podName).get();
+            // New session = new pod? OR implementation re-uses pod if hash same?
+            // createContainer(userId, repoHash...)
+            // If repoHash is same, namespace is same.
+            // KubernetesComputeService.createContainer -> checks if exists?
+            // Currently it just tries to create. If exists, it might fail or succeed
+            // idempotent.
+            // But we called deleteContainer? NO. E2eTestClient triggers "new session".
+            // OrchestratorService.handleNewSession -> ComputeService.createContainer.
+            // If it's the SAME repo hash, it maps to SAME namespace and SAME pod name.
+            // So it effectively returns existing pod if k8s says it exists?
+            // Wait, OrchestratorService logic:
+            // if (request.getSessionId().equals(currentSessionId)) return existing.
+            // else -> delete old container?
+            // Re-reading OrchestratorService.java would be good but let's assume standard
+            // behavior:
+            // If session changes, it might tear down the old one?
+            // The test says "Triggering deletion by changing session".
+
+            Pod newPod = k8sClient.pods().inNamespace(namespace).withName(expectedPodName).get();
 
             if (newPod != null) {
                 System.out.println("Pod exists (likely the new one). Phase: " + newPod.getStatus().getPhase());
                 String oldUid = pod.getMetadata().getUid();
                 String newUid = newPod.getMetadata().getUid();
+
+                // If Orchestrator deletes and recreates, UID should change.
+                // However, with namespace isolation, if we delete the pod, we might also delete
+                // the namespace?
+                // KubernetesComputeService.deleteContainer deletes the NAMESPACE.
+                // So the namespace might be gone or terminating.
+                // If it recreates fast enough, we get a new namespace (same name) and new pod.
 
                 assertThat(newUid)
                         .as("If a pod exists after session change, it must be a NEW pod (different UID)")

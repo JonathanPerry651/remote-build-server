@@ -7,12 +7,13 @@ public interface ComputeService {
     /**
      * Creates a compute container for a build session.
      * 
-     * @param userId     The user ID.
-     * @param repoHash   The repository hash.
-     * @param sourcePath The source path.
+     * @param userId         The user ID.
+     * @param repoHash       The repository hash.
+     * @param sourcePath     The source path.
+     * @param startupOptions The list of startup options for the Bazel server.
      * @return The name/ID of the created container.
      */
-    String createContainer(String userId, String repoHash, String sourcePath);
+    String createContainer(String userId, String repoHash, String sourcePath, java.util.List<String> startupOptions);
 
     /**
      * Deletes a compute container.

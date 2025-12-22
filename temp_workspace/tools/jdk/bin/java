@@ -1,0 +1,6 @@
+#!/bin/bash
+echo "CWD: $(pwd)" > /tmp/bazel_server_log.txt
+echo "ARGS: $@" >> /tmp/bazel_server_log.txt
+echo "ENV: $(env)" >> /tmp/bazel_server_log.txt
+# We fail to start a real server, but valid enough to capture args
+exit 1
