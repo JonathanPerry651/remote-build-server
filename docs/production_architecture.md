@@ -45,7 +45,7 @@ graph TD
     
     %% Execution Flow
     Client -- "Spawn Process" --> Proxy["Proxy (Server Mode)"]
-    Proxy -- "gRPC (mTLS)" --> AgentPod1
+    Proxy -- "Proxyless gRPC (xDS)" --> AgentPod1
     
     %% Data Sync Idea (Implied)
     Client -.->|Sync Source| Filestore
@@ -56,17 +56,26 @@ graph TD
 To ensure hermetic and fast builds, RBS leverages Google Cloud Filestore (Enterprise/High Scale) as the backing storage for build workspaces.
 
 ### Workflow
-1.  **Provisioning**: When a user connects, the Orchestrator ensures a persistent volume (PVC) backed by Filestore is available for that user or session.
-2.  **Shared Mounting**: 
-    *   **Server Side**: The `KubernetesComputeService` spawns an Agent Pod with the Filestore volume mounted.
-    *   **Client Side**: The developer's machine mounts the same Filestore volume (e.g., via NFS), ensuring instant visibility of source code without explicit synchronization steps.
-3.  **Execution**: The `bazel` process running in the Agent Pod performs all reads/writes against the high-performance Filestore mount.
-4.  **Persistence**: Build caches (bazel-out) can be preserved across sessions within the Filestore volume, speeding up subsequent builds.
+1.  **Provisioning**: When a user connects, the Orchestrator ensures a persistent volume (PVC) backed by Filestore is available.
+2.  **Shared Mounting (Isolated Subpaths)**: 
+    *   **Isolation**: We do NOT mount the root of the Filestore. Instead, each session is restricted to a specific subpath (e.g., `/filestore_root/<user_id>/<repo_hash>`).
+    *   **Server Side**: The `KubernetesComputeService` configures the Agent Pod to mount *only* this subpath. The Pod has no visibility into other users' directories.
+    *   **Client Side**: The developer's machine mounts the same subpath (via NFS export policy or client-side restricted mount), ensuring they only see their own data.
+3.  **Execution**: The `bazel` process running in the Agent Pod performs all reads/writes against this isolated subpath.
+4.  **Persistence**: Build caches (bazel-out) are preserved within this isolated subpath.
 
 ### Benefits
 *   **Performance**: Low-latency file operations compared to standard buckets.
 *   **Consistency**: Standard POSIX compliance ensures Bazel behaves exactly as it does on a local disk.
 *   **Persistence**: Workspaces survive pod restarts or rescheduling.
+
+## Service Discovery: GCP Traffic Director
+RBS utilizes **Proxyless gRPC** with **Google Cloud Traffic Director** for advanced service discovery and load balancing, removing the need for sidecar proxies.
+
+### Logical Addressing
+*   **Scheme**: `xds:///`
+*   **Address Format**: The logical address of each Agent Pod is constructed as: `<namespace>.<project_id>`
+*   **Mechanism**: The local Proxy connects to `xds://<namespace>.<project_id>`, and Traffic Director resolves this to the specific Agent Pod IP in the GKE cluster.
 
 ## Security & Isolation
 
