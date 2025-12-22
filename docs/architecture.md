@@ -94,18 +94,18 @@ graph TD
         end
         
         subgraph "Build Plane (Nodes)"
-            AgentPod1[Agent Pod (User A)]
-            AgentPod2[Agent Pod (User B)]
+            AgentPod1["Agent Pod (User A)"]
+            AgentPod2["Agent Pod (User B)"]
         end
     end
 
-    Client -- gRPC (GetServer) --> Ingress
+    Client -- "gRPC (GetServer)" --> Ingress
     Ingress --> Orch
     Orch -- Read/Write State --> DB
     Orch -- K8s API --> AgentPod1
     
-    Client -- gRPC (ExecuteCommand) --> AgentPod1
+    Client -- "gRPC (ExecuteCommand)" --> AgentPod1
     
-    note[Note: Direct connection to Agent \n may require Proxy/Tunnel if not \n on same VPC]
+    note["Note: Direct connection to Agent \n may require Proxy/Tunnel if not \n on same VPC"]
     Client -.-> note
 ```
