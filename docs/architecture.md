@@ -7,7 +7,7 @@ This document describes the architecture of the Remote Build Server (RBS), a sys
 RBS replaces the standard Bazel Server process with a lightweight **gRPC Proxy**. This proxy runs on the developer's machine, effectively "masquerading" as the Bazel Server. It intercepts gRPC calls from the Bazel Client and forwards them to a remote **Agent** running in the build cluster.
 
 This architecture ensures:
-1.  **Native Experience**: The developer uses the standard `bazel` CLI (via `jbazel` wrapper or direct configuration).
+1.  **Native Experience**: The developer uses the standard `bazel` CLI (configured via `server_javabase`).
 2.  **Remote Execution**: aggregated compute and storage in the cloud.
 3.  **IDE Compatibility**: IDEs that speak the Bazel gRPC protocol work out of the box.
 

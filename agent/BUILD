@@ -25,14 +25,7 @@ go_library(
     deps = [
         ":runner_go_proto",
         "//orchestrator:orchestrator_go_grpc",
-        "@io_opentelemetry_go_otel//:otel",
-        "@io_opentelemetry_go_otel//attribute",
-        "@io_opentelemetry_go_otel//propagation",
-        "@io_opentelemetry_go_otel//semconv/v1.17.0:v1_17_0",
-        "@io_opentelemetry_go_otel_exporters_stdout_stdouttrace//:stdouttrace",
-        "@io_opentelemetry_go_otel_sdk//resource",
-        "@io_opentelemetry_go_otel_sdk//trace",
-        "@io_opentelemetry_go_otel_trace//:trace",
+
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//credentials/insecure",

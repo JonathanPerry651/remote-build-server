@@ -1,5 +1,7 @@
 # Architecture Proposal: Generic gRPC Proxy
 
+> **STATUS: IMPLEMENTED**. This proposal describes the architecture that has been adopted for the Remote Build Server. The Proxy now runs in Server Mode and is invoked via `--server_javabase`. See `docs/architecture.md` for the canonical documentation.
+
 This document explores an alternative architecture where the "Remote Build Server" behaves as a transparent proxy for the native Bazel client/server gRPC protocol, rather than wrapping `stdin/stdout`.
 
 ## Concept

@@ -22,5 +22,5 @@ The Agent implements a generic gRPC proxying mechanism. It does not parse the Ba
 
 ## Key Interactions
 
--   **Inbound**: Encrypted/Tunnelled gRPC traffic from `jbazel`'s proxy.
+-   **Inbound**: Encrypted/Tunnelled gRPC traffic from the Proxy (Server Mode).
 -   **Outbound**: Local gRPC traffic to the Bazel Server (or other local daemons).

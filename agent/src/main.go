@@ -18,19 +18,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"go.opentelemetry.io/otel/trace"
-)
-
-var (
-	tracer = otel.Tracer("agent")
 )
 
 type server struct {
@@ -38,15 +25,6 @@ type server struct {
 }
 
 func (s *server) ExecuteCommand(stream pb.Runner_ExecuteCommandServer) error {
-	// Extract context from metadata
-	ctx := stream.Context()
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(md))
-	}
-
-	ctx, span := tracer.Start(ctx, "ExecuteCommand")
-	defer span.End()
 
 	// 1. Receive Init Request
 	req, err := stream.Recv()
@@ -60,7 +38,6 @@ func (s *server) ExecuteCommand(stream pb.Runner_ExecuteCommandServer) error {
 	}
 
 	slog.Info("Starting command", "args", initReq.Args, "cwd", initReq.WorkingDirectory)
-	span.AddEvent("Starting command", trace.WithAttributes())
 
 	// 2. Prepare Command
 	// Assuming Bubblewrap is set up in the environment or we just run directly for now.
@@ -212,38 +189,7 @@ func resolveBazelSocket() (string, error) {
 	return filepath.Join(outputBase, "server", "server.socket"), nil
 }
 
-func initTracer() func(context.Context) error {
-	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-	if err != nil {
-		slog.Error("failed to create stdout exporter", "error", err)
-		return nil
-	}
-
-	res, err := resource.New(context.Background(),
-		resource.WithAttributes(
-			semconv.ServiceName("agent"),
-		),
-	)
-	if err != nil {
-		slog.Error("failed to create resource", "error", err)
-		return nil
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(res),
-	)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-
-	return tp.Shutdown
-}
-
 func main() {
-	shutdown := initTracer()
-	if shutdown != nil {
-		defer shutdown(context.Background())
-	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -254,15 +200,7 @@ func main() {
 	opts := []grpc.ServerOption{
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			// Extract context for tracing
-			ctx := stream.Context()
-			md, ok := metadata.FromIncomingContext(ctx)
-			if ok {
-				ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(md))
-			}
-			ctx, span := tracer.Start(ctx, "ProxyForward")
-			defer span.End()
-
-			return forwardToBazel(ctx, stream)
+			return forwardToBazel(stream.Context(), stream)
 		}),
 	}
 
@@ -310,10 +248,6 @@ func forwardToBazel(ctx context.Context, serverStream grpc.ServerStream) error {
 	if !ok {
 		return fmt.Errorf("failed to extract method")
 	}
-
-	// 4. Trace Attributes
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.String("grpc.method", methodName))
 
 	// 5. Forward with Empty
 	// Copy MD

@@ -10,7 +10,7 @@ This flow represents the local development loop (`e2e/mirror_test.sh`) where all
 sequenceDiagram
     autonumber
     participant T as Test Script (mirror_test.sh)
-    participant J as jBazel (Client)
+    participant C as Bazel Client
     participant Pr as Proxy (Server Mode)
     participant O as Orchestrator (Local Process)
     participant P as ProcessComputeService
@@ -20,7 +20,7 @@ sequenceDiagram
     
     T->>O: Start Orchestrator (Port 50051)
     
-    T->>J: Run `jbazel build //...`
+    T->>C: Run `bazel build //...`
     J->>Pr: Spawn (as java)
     activate Pr
     Pr->>O: GetServer(RepoHash, SourcePath)
@@ -34,9 +34,9 @@ sequenceDiagram
     O-->>Pr: ServerAddress (localhost:PORT)
     
     Pr->>A: Connect (gRPC)
-    Pr-->>J: Handshake (Port, Cookie)
+    Pr-->>C: Handshake (Port, Cookie)
     
-    J->>Pr: ExecuteCommand(gRPC)
+    C->>Pr: ExecuteCommand(gRPC)
     Pr->>A: Forward Request
     A->>A: Run `bazel build ...`
     A-->>Pr: Stream Output
@@ -57,14 +57,14 @@ sequenceDiagram
     participant S as Spanner Emulator (Pod)
     participant K8 as KubernetesComputeService
     participant A as Agent (Pod)
-    participant J as jBazel (Test Client)
+    participant C as Test Client (Bazel)
 
     T->>K: `kubectl apply` Manifests
     K->>O: Deploy Orchestrator
     K->>S: Deploy Spanner Emulator
     
-    T->>J: Run Test Command
-    J->>O: GetServer(RepoHash)
+    T->>C: Run Test Command
+    C->>O: GetServer(RepoHash)
     O->>K8: createContainer(RepoHash)
     K8->>K: Create Pod (Agent)
     K-->>A: Schedule Pod
@@ -74,10 +74,10 @@ sequenceDiagram
     K8->>K: Watch Pod Status IP
     K-->>K8: Pod IP
     K8-->>O: Agent Address (PodIP:9011)
-    O-->>J: ServerAddress
+    O-->>C: ServerAddress
     
-    J->>A: Connect (gRPC)
-    J->>A: ExecuteCommand
-    A-->>J: Stream Output
+    C->>A: Connect (gRPC)
+    C->>A: ExecuteCommand
+    A-->>C: Stream Output
 ```
 

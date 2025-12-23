@@ -9,7 +9,7 @@ The production environment consists of a Control Plane (Orchestrator + Database)
 ```mermaid
 graph TD
     subgraph "Developer Machine"
-        Client[jBazel CLI]
+        Client[Bazel CLI]
         Source[Source Code]
     end
 

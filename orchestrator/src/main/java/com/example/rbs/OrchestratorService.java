@@ -56,7 +56,8 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
       SessionRepository.BuildSession session = sessionRepo.getSession(clientSessionId);
 
       if (session != null) {
-        // Session exists.
+        // Session exists. Update heartbeat to prevent reaping during long startup.
+        sessionRepo.updateHeartbeat(clientSessionId);
         // Check actual status of pod.
         checkAndUpdateStatus(userId, repoHash, session, responseObserver);
         return;

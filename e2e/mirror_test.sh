@@ -26,10 +26,6 @@ if [ ! -f "$ORCHESTRATOR_BINARY" ]; then
     ORCHESTRATOR_BINARY="./orchestrator/server"
 fi
 
-JBAZEL_BINARY="./bazel-bin/jbazel/src/jbazel_/jbazel"
-if [ ! -f "$JBAZEL_BINARY" ]; then
-    JBAZEL_BINARY="./jbazel/src/jbazel_/jbazel"
-fi
 
 PROXY_BINARY="./bazel-bin/proxy/proxy_/proxy"
 if [ ! -f "$PROXY_BINARY" ]; then
@@ -44,11 +40,11 @@ fi
 # Ensure executable
 [ -f "$AGENT_BINARY" ] && chmod +x "$AGENT_BINARY"
 [ -f "$ORCHESTRATOR_BINARY" ] && chmod +x "$ORCHESTRATOR_BINARY"
-[ -f "$JBAZEL_BINARY" ] && chmod +x "$JBAZEL_BINARY"
+
 [ -f "$PROXY_BINARY" ] && chmod +x "$PROXY_BINARY"
 [ -f "$VERIFIER_BINARY" ] && chmod +x "$VERIFIER_BINARY"
 
-if [ ! -f "$AGENT_BINARY" ] || [ ! -f "$ORCHESTRATOR_BINARY" ] || [ ! -f "$JBAZEL_BINARY" ] || [ ! -f "$PROXY_BINARY" ] || [ ! -f "$VERIFIER_BINARY" ]; then
+if [ ! -f "$AGENT_BINARY" ] || [ ! -f "$ORCHESTRATOR_BINARY" ] || [ ! -f "$PROXY_BINARY" ] || [ ! -f "$VERIFIER_BINARY" ]; then
   echo "Error: Could not locate required binaries."
   exit 1
 fi
@@ -56,14 +52,13 @@ fi
 # Resolve to absolute paths
 AGENT_BINARY=$(readlink -f "$AGENT_BINARY")
 ORCHESTRATOR_BINARY=$(readlink -f "$ORCHESTRATOR_BINARY")
-JBAZEL_BINARY=$(readlink -f "$JBAZEL_BINARY")
+
 PROXY_BINARY=$(readlink -f "$PROXY_BINARY")
 VERIFIER_BINARY=$(readlink -f "$VERIFIER_BINARY")
 export VERIFIER_BINARY="$VERIFIER_BINARY"
 
 export AGENT_BINARY="$AGENT_BINARY"
-# Jbazel needs to know where Proxy is
-export JBAZEL_PROXY_BIN="$PROXY_BINARY"
+
 export ORCHESTRATOR_ADDR="localhost:50051"
 
 # Create a temporary workspace
@@ -248,10 +243,11 @@ cd "$WORK_DIR/src/main"
 # Mock Local Bazel (Verifier) checks Echo.
 
 output_file="$WORK_DIR/jbazel.log"
-$JBAZEL_BINARY test //... --orchestrator=localhost:$PORT > "$output_file" 2>&1 || true
+# Directly invoke Mock Client (simulating real bazel) with server_javabase
+$MOCK_BAZEL_CLIENT test //... --server_javabase=//tools/rbs_javabase:rbs_javabase > "$output_file" 2>&1 || true
 jbazel_exit=$?
 
-echo "Jbazel Output:"
+echo "Bazel Client Output:"
 cat "$output_file"
 
 if [ $jbazel_exit -eq 0 ]; then

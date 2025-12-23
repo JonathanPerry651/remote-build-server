@@ -6,8 +6,8 @@ This document outlines the various lifecycle concerns involved in the interactio
 **Concern**: How does the local Bazel Client (C++) discover and establish a connection to the local Proxy process?
 *   **Solution**: The local Proxy runs in **Server Mode** (masquerading as the Bazel Server JVM) and listens on a **Unix Domain Socket** at `<output_base>/server/server.socket`. The Bazel Client (C++) automatically attempts to connect to this socket (or is directed to it via startup flags/standard conventions) instead of the traditional `command_port`.
 
-**Concern**: How does the `jbazel` wrapper ensure the Proxy is running and healthy before invoking the Bazel Client?
-*   **Solution**: The `jbazel` wrapper configures the Bazel Client to use the Proxy as the `server_javabase`. The Bazel Client itself manages the lifecycle of the server process: if the connection fails or the socket is missing, the Bazel Client launches the Proxy binary (as the "server") and waits for it to initialize the socket handling.
+**Concern**: How does the Bazel Client ensure the Proxy is running and healthy before invoking it?
+*   **Solution**: The user configures the Bazel Client (via `.bazelrc`) to use the Proxy as the `server_javabase`. The Bazel Client itself manages the lifecycle of the server process: it launches the Proxy binary (as the "server") and waits for it to initialize the socket handling.
 
 ## 2. Session Provisioning
 **Concern**: How does the Proxy identify the current user and workspace to request the correct remote resources?

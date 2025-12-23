@@ -14,7 +14,7 @@ The `orchestrator` is the central control plane for the Remote Build Server syst
     -   Handles race conditions to ensure only one active container per session.
 
 3.  **Discovery API**:
-    -   Exposes a gRPC service (`Orchestrator`) consumed by `jbazel`.
+    -   Exposes a gRPC service (`Orchestrator`) consumed by the Proxy.
     -   **`GetServer` RPC**:
         -   If a session exists and is READY: Returns the Agent's address.
         -   If a session exists and is PENDING: Returns the status, telling the client to wait.
@@ -22,6 +22,6 @@ The `orchestrator` is the central control plane for the Remote Build Server syst
 
 ## Key Interactions
 
--   **Clients**: `jbazel` CLI instances requesting build servers.
+-   **Clients**: Proxy instances (running as `server_javabase`) requesting build servers.
 -   **Infrastructure**: Kubernetes API / Docker (via `ComputeService`) to manage pods.
 -   **Database**: Spanner (via `SessionRepository`) for state persistence.
