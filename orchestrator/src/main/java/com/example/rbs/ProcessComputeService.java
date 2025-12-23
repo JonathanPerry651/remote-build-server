@@ -15,9 +15,9 @@ public class ProcessComputeService implements ComputeService {
     private final Map<String, Integer> ports = new ConcurrentHashMap<>();
 
     @Override
-    public String createContainer(String userId, String repoHash, String sourcePath,
+    public String createContainer(String userId, String repoHash, String sessionId, String sourcePath,
             java.util.List<String> startupOptions, String region) {
-        String containerId = getContainerId(userId, repoHash);
+        String containerId = getContainerId(userId, repoHash, sessionId);
         logger.info("Process: Spawning process for " + containerId + " (source: " + sourcePath + ")");
 
         if (processes.containsKey(containerId) && processes.get(containerId).isAlive()) {
@@ -62,8 +62,8 @@ public class ProcessComputeService implements ComputeService {
     }
 
     @Override
-    public void deleteContainer(String userId, String repoHash) {
-        String containerId = getContainerId(userId, repoHash);
+    public void deleteContainer(String userId, String repoHash, String sessionId) {
+        String containerId = getContainerId(userId, repoHash, sessionId);
         Process p = processes.remove(containerId);
         if (p != null) {
             logger.info("Process: Killing process for " + containerId + ", pid=" + p.pid());
@@ -79,8 +79,8 @@ public class ProcessComputeService implements ComputeService {
     }
 
     @Override
-    public ContainerStatus getContainerStatus(String userId, String repoHash) {
-        String containerId = getContainerId(userId, repoHash);
+    public ContainerStatus getContainerStatus(String userId, String repoHash, String sessionId) {
+        String containerId = getContainerId(userId, repoHash, sessionId);
         Process p = processes.get(containerId);
 
         Integer port = ports.get(containerId);
@@ -93,8 +93,14 @@ public class ProcessComputeService implements ComputeService {
         return null;
     }
 
-    private String getContainerId(String userId, String repoHash) {
-        return "proc-" + userId + "-" + repoHash;
+    public long getPid(String userId, String repoHash, String sessionId) {
+        String containerId = getContainerId(userId, repoHash, sessionId);
+        Process p = processes.get(containerId);
+        return p != null ? p.pid() : -1;
+    }
+
+    private String getContainerId(String userId, String repoHash, String sessionId) {
+        return "proc-" + userId + "-" + repoHash + "-" + sessionId;
     }
 
     private int findFreePort() {

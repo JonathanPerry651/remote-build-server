@@ -16,13 +16,12 @@ public class KubernetesComputeService implements ComputeService {
     }
 
     @Override
-    public String createContainer(String userId, String repoHash, String sourcePath,
+    public String createContainer(String userId, String repoHash, String sessionId, String sourcePath,
             java.util.List<String> startupOptions, String region) {
         // TODO: Implement startupOptions for Kubernetes
         // For now, ignoring them in K8s implementation until next phase
-        String sanitizedUser = userId.toLowerCase().replaceAll("[^a-z0-9]", "");
-        String namespace = sanitizedUser + "-rbs-" + repoHash;
-        String serviceAccountName = "sa-" + sanitizedUser;
+        String namespace = getNamespaceName(userId, repoHash, sessionId);
+        String serviceAccountName = "sa-" + userId.toLowerCase().replaceAll("[^a-z0-9]", "");
         String podName = "bazel-server"; // Fixed name since we are in a unique namespace
 
         logger.info("Ensuring namespace: " + namespace);
@@ -44,6 +43,7 @@ public class KubernetesComputeService implements ComputeService {
                 .withNamespace(namespace)
                 .addToLabels("app", "bazel-build")
                 .addToLabels("user", userId)
+                .addToLabels("session", sessionId)
                 .addToAnnotations(annotations)
                 .endMetadata()
                 .withNewSpec()
@@ -84,19 +84,12 @@ public class KubernetesComputeService implements ComputeService {
             logger.severe("Failed to create pod: " + e.getMessage());
             throw new RuntimeException("Failed to create pod: " + e.getMessage(), e);
         }
-        return podName; // Returning podName, but caller implies it might expect ID?
-        // Actually, existing caller expects a container ID.
-        // In namespace isolation, (namespace, podName) is key.
-        // Returning namespace might be more appropriate if we assume 1 pod/ns.
-        // But for backward compat, returning podName.
-        // Wait, getContainerStatus needs to know where to look.
-        // I should stick to a convention where I can derive namespace from
-        // userId/repoHash in getContainerStatus too.
+        return podName;
     }
 
     @Override
-    public void deleteContainer(String userId, String repoHash) {
-        String namespace = getNamespaceName(userId, repoHash);
+    public void deleteContainer(String userId, String repoHash, String sessionId) {
+        String namespace = getNamespaceName(userId, repoHash, sessionId);
         logger.info("Deleting namespace: " + namespace);
         try {
             k8sClient.namespaces().withName(namespace).withGracePeriod(0).delete();
@@ -122,8 +115,8 @@ public class KubernetesComputeService implements ComputeService {
     }
 
     @Override
-    public ContainerStatus getContainerStatus(String userId, String repoHash) {
-        String namespace = getNamespaceName(userId, repoHash);
+    public ContainerStatus getContainerStatus(String userId, String repoHash, String sessionId) {
+        String namespace = getNamespaceName(userId, repoHash, sessionId);
         String podName = "bazel-server";
         Pod pod = k8sClient.pods().inNamespace(namespace).withName(podName).get();
 
@@ -149,9 +142,11 @@ public class KubernetesComputeService implements ComputeService {
         return new ContainerStatus(status, ip);
     }
 
-    private String getNamespaceName(String userId, String repoHash) {
+    private String getNamespaceName(String userId, String repoHash, String sessionId) {
         String sanitizedUser = userId.toLowerCase().replaceAll("[^a-z0-9]", "");
-        return sanitizedUser + "-rbs-" + repoHash;
+        // Use hash of SessionID to keep it short if needed, or substring
+        String sessionSuffix = sessionId.substring(0, Math.min(sessionId.length(), 8));
+        return sanitizedUser + "-rbs-" + repoHash + "-" + sessionSuffix;
     }
 
     private void createNamespace(String namespace) {

@@ -28,13 +28,6 @@ public class ProcessLifecycleTest {
     private OrchestratorService service;
     private InMemorySessionRepository sessionRepo;
 
-    @Before
-    public void setUp() {
-        computeService = new ProcessComputeService();
-        sessionRepo = new InMemorySessionRepository();
-        service = new OrchestratorService(sessionRepo, computeService);
-    }
-
     @After
     public void tearDown() {
         computeService.cleanup();
@@ -57,16 +50,11 @@ public class ProcessLifecycleTest {
         assertThat(resp1.getStatus()).isEqualTo("PENDING");
 
         // Verify Process Spawned
-        assertThat(computeService.getContainerStatus(userId, repoHash)).isNotNull();
-        assertThat(computeService.getContainerStatus(userId, repoHash).getStatus()).isEqualTo("READY"); // Process
-                                                                                                        // starts
-                                                                                                        // instantly
+        assertThat(computeService.getContainerStatus(userId, repoHash, sessionId1)).isNotNull();
+        assertThat(computeService.getContainerStatus(userId, repoHash, sessionId1).getStatus()).isEqualTo("READY"); // Process
+        // starts
+        // instantly
 
-        // --- Step 2: Poll (Check Ready) ---
-        // Mock DB: Session exists, Status PENDING (Orchestrator logic updates checks
-        // compute service)
-        // Since process compute service returns READY immediately for 'Running'
-        // processes.
         // --- Step 2: Poll (Check Ready) ---
         // InMemory DB implicitly holds state. Check if session stored.
         // We don't need to mock query/update anymore. logic flows naturally.
@@ -85,11 +73,78 @@ public class ProcessLifecycleTest {
                 .setUserId(userId).setRepoHash(repoHash).setSessionId(sessionId2).build();
 
         // Orchestrator will delete old container and create new one
+        // Wait, NO. Orchestrator logic changed.
+        // If client sends new sessionId2, Orchestrator looks it up. IT IS NOT FOUND.
+        // Orchestrator creates NEW session2.
+        // Old session1 is still there!
+        // THIS IS VALID BEHAVIOR for 1-to-1 mapping.
+        // But what about colliding processes?
+        // ProcessComputeService uses "proc-user-repo-session". So they don't collide.
+        // So both run.
+
+        // Wait, ProcessLifecycleTest logic at "Step 3" assumes "Changed Session ->
+        // Delete".
+        // With 1-to-1, that's not what happens automatically unless client requests
+        // explicit delete or reaper runs.
+        // The test scenario "Change Session (Delete & Recreate)" is mirroring the old
+        // logic of "Session Mismatch".
+        // But now, a mismatch isn't a *mismatch*, found vs requested. It's just *not
+        // found*.
+        // So I should verify that *new* session is created.
+
+        // Actually, if I want to test "Delete & Recreate", I should verify that
+        // session1 still exists (orphaned until reaped)
+        // AND session2 is created.
+
+        // But wait, user said "Whenever bazel would start a new server, then a new
+        // worker should get started."
+        // That implies parallel existence.
+        // "whenever bazel would kill a running server, the proxy should die (and thus
+        // the build worker should get reaped)."
+        // That implies explicitly killing.
 
         GetServerResponse resp3 = callGetServer(req2);
 
         assertThat(resp3.getStatus()).isEqualTo("PENDING");
-        assertThat(computeService.getContainerStatus(userId, repoHash)).isNotNull();
+        assertThat(computeService.getContainerStatus(userId, repoHash, sessionId2)).isNotNull();
+        // Check session1 still exists?
+        assertThat(computeService.getContainerStatus(userId, repoHash, sessionId1)).isNotNull();
+    }
+
+    @Test
+    public void testReaperCleansUpStaleSessions() throws Exception {
+        String userId = "user-reaper";
+        String repoHash = "repo-reaper";
+        String sessionId = "session-reaper";
+
+        // 1. Create Session
+        GetServerRequest req = GetServerRequest.newBuilder()
+                .setUserId(userId).setRepoHash(repoHash).setSessionId(sessionId).build();
+        callGetServer(req);
+
+        // Verify active and get PID
+        assertThat(computeService.getContainerStatus(userId, repoHash, sessionId)).isNotNull();
+        assertThat(sessionRepo.getSession(sessionId)).isNotNull();
+        long pid = computeService.getPid(userId, repoHash, sessionId);
+        assertThat(pid).isGreaterThan(0);
+
+        // 2. Advance time (5 mins + 1ms)
+        mutableClock.advance(java.time.Duration.ofMinutes(5).plusMillis(1));
+
+        // 3. Trigger Reaper
+        service.reapStaleSessions();
+
+        // 4. Verify Cleanup
+        assertThat(computeService.getContainerStatus(userId, repoHash, sessionId)).isNull();
+        assertThat(sessionRepo.getSession(sessionId)).isNull();
+
+        // 5. Verify Process is Dead
+        // Wait a small moment for async OS cleanup if needed, though waitFor() in
+        // deleteContainer should handle it.
+        // ProcessHandle.of(pid) returns Optional<ProcessHandle>. If present, check
+        // isAlive().
+        boolean isAlive = java.lang.ProcessHandle.of(pid).map(java.lang.ProcessHandle::isAlive).orElse(false);
+        assertThat(isAlive).as("Process " + pid + " should be dead").isFalse();
     }
 
     private GetServerResponse callGetServer(GetServerRequest req) {
@@ -112,5 +167,38 @@ public class ProcessLifecycleTest {
         return ref.get();
     }
 
-    // Mock helpers removed
+    // --- Mutable Clock Helper ---
+    private static class MutableClock extends java.time.Clock {
+        private java.time.Instant instant = java.time.Instant.now();
+        private final java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+
+        public void advance(java.time.Duration duration) {
+            instant = instant.plus(duration);
+        }
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return zone;
+        }
+
+        @Override
+        public java.time.Clock withZone(java.time.ZoneId zone) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public java.time.Instant instant() {
+            return instant;
+        }
+    }
+
+    private MutableClock mutableClock;
+
+    @Before
+    public void setUp() {
+        computeService = new ProcessComputeService();
+        mutableClock = new MutableClock();
+        sessionRepo = new InMemorySessionRepository(mutableClock);
+        service = new OrchestratorService(sessionRepo, computeService);
+    }
 }

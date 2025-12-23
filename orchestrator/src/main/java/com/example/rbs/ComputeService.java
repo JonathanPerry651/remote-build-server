@@ -9,31 +9,35 @@ public interface ComputeService {
      * 
      * @param userId         The user ID.
      * @param repoHash       The repository hash.
+     * @param sessionId      The unique session ID.
      * @param sourcePath     The source path.
      * @param startupOptions The list of startup options for the Bazel server.
      * @param region         The target region for the container.
      * @return The name/ID of the created container.
      */
-    String createContainer(String userId, String repoHash, String sourcePath, java.util.List<String> startupOptions,
+    String createContainer(String userId, String repoHash, String sessionId, String sourcePath,
+            java.util.List<String> startupOptions,
             String region);
 
     /**
      * Deletes a compute container.
      * 
-     * @param userId   The user ID.
-     * @param repoHash The repository hash.
+     * @param userId    The user ID.
+     * @param repoHash  The repository hash.
+     * @param sessionId The unique session ID.
      */
-    void deleteContainer(String userId, String repoHash);
+    void deleteContainer(String userId, String repoHash, String sessionId);
 
     /**
      * Gets the status of a container.
      * 
-     * @param userId   The user ID.
-     * @param repoHash The repository hash.
+     * @param userId    The user ID.
+     * @param repoHash  The repository hash.
+     * @param sessionId The unique session ID.
      * @return The status (e.g., "PENDING", "READY", "UNKNOWN") or null if not
      *         found.
      */
-    ContainerStatus getContainerStatus(String userId, String repoHash);
+    ContainerStatus getContainerStatus(String userId, String repoHash, String sessionId);
 
     class ContainerStatus {
         private final String status; // e.g. "READY", "PENDING"

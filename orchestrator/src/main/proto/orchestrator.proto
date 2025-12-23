@@ -8,6 +8,7 @@ option java_outer_classname = "OrchestratorProto";
 
 service Orchestrator {
   rpc GetServer (GetServerRequest) returns (GetServerResponse) {}
+  rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse) {}
 }
 
 message GetServerRequest {
@@ -23,3 +24,9 @@ message GetServerResponse {
   string server_address = 1;
   string status = 2;
 }
+
+message HeartbeatRequest {
+  string session_id = 1;
+}
+
+message HeartbeatResponse {}

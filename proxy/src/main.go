@@ -146,6 +146,20 @@ func runServerMode(outputBase, workspaceDir string, startupArgs []string) {
 		if resp.GetStatus() == "READY" {
 			targetAddr = resp.GetServerAddress()
 			slog.Info("Remote Server READY", "addr", targetAddr)
+
+			// Start Heartbeat Loop
+			go func() {
+				ticker := time.NewTicker(30 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
+					hbCtx, hbCancel := context.WithTimeout(context.Background(), 5*time.Second)
+					_, err := orchClient.Heartbeat(hbCtx, &orchpb.HeartbeatRequest{SessionId: sessionId})
+					hbCancel()
+					if err != nil {
+						slog.Warn("Heartbeat failed", "error", err)
+					}
+				}
+			}()
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -197,9 +211,6 @@ func runServerMode(outputBase, workspaceDir string, startupArgs []string) {
 	// Forward to Remote Agent
 	proxyHandler := func(srv interface{}, stream grpc.ServerStream) error {
 		// Dial Backend (per request or pooled)
-		// Assuming connection reuse is better, but allow simplistic dialing for now.
-		// NOTE: NewServer creates a new goroutine per request.
-
 		targetConn, err := grpc.Dial(targetAddr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDefaultCallOptions(grpc.ForceCodec(proxyCodec{})),
@@ -209,7 +220,23 @@ func runServerMode(outputBase, workspaceDir string, startupArgs []string) {
 		}
 		defer targetConn.Close()
 
-		return forwardStream(stream, targetConn, sessionId)
+		err = forwardStream(stream, targetConn, sessionId)
+		if _, ok := err.(*UpstreamClosedError); ok {
+			// If upstream closed, we should shutdown the proxy too.
+			// Especially in Server Mode (one-to-one mapping).
+			slog.Info("Upstream closed, shutting down proxy...")
+			go func() {
+				time.Sleep(100 * time.Millisecond) // Grace period for trailer
+				os.Exit(0)
+			}()
+			// Return nil to complete this stream normally (if it was EOF)
+			// If err.Err was non-nil, we might return it?
+			if err.(*UpstreamClosedError).Err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		return err
 	}
 
 	grpcServer := grpc.NewServer(
@@ -260,7 +287,20 @@ func runProxy(listenPath, targetAddr string) {
 			return err
 		}
 		defer conn.Close()
-		return forwardStream(stream, conn, "") // No session ID for legacy mode?
+		err = forwardStream(stream, conn, "") // No session ID for legacy mode?
+
+		if _, ok := err.(*UpstreamClosedError); ok {
+			slog.Info("Upstream closed, shutting down proxy...")
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				os.Exit(0)
+			}()
+			if err.(*UpstreamClosedError).Err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		return err
 	}
 
 	s := grpc.NewServer(
@@ -272,6 +312,15 @@ func runProxy(listenPath, targetAddr string) {
 		slog.Error("failed to serve", "error", err)
 		os.Exit(1)
 	}
+}
+
+// UpstreamClosedError indicates the backend closed the connection.
+type UpstreamClosedError struct {
+	Err error
+}
+
+func (e *UpstreamClosedError) Error() string {
+	return fmt.Sprintf("upstream closed: %v", e.Err)
 }
 
 func forwardStream(serverStream grpc.ServerStream, clientConn *grpc.ClientConn, sessionId string) error {
@@ -290,64 +339,66 @@ func forwardStream(serverStream grpc.ServerStream, clientConn *grpc.ClientConn, 
 		outCtx = metadata.AppendToOutgoingContext(outCtx, "x-rbs-session-id", sessionId)
 	}
 
-	// 3. Initiate Client Stream to Agent
+	// 3. Initiate client stream
 	desc := &grpc.StreamDesc{
 		ServerStreams: true,
 		ClientStreams: true,
 	}
-
 	clientStream, err := clientConn.NewStream(outCtx, desc, methodName)
 	if err != nil {
 		return fmt.Errorf("failed to create client stream: %w", err)
 	}
 
-	// slog.Info("Forwarding call", "method", methodName)
-
+	// errChan carries errors from the pumps.
+	// We wrap upstream errors in UpstreamClosedError to distinguish them.
 	errChan := make(chan error, 2)
 
-	// Server -> Client (Request)
+	// Server -> Client (Request Pump)
 	go func() {
 		for {
 			var frame []byte
-			// RecvMsg expects pointer to []byte because of proxyCodec
 			if err := serverStream.RecvMsg(&frame); err != nil {
 				if err != io.EOF {
-					errChan <- err
+					errChan <- err // Downstream error
+				} else {
+					// Client closed stream normally
+					clientStream.CloseSend()
+					// We don't send nil to errChan here; we wait for upstream response pump to finish
 				}
-				clientStream.CloseSend() // Close upstream
 				return
 			}
-
 			if err := clientStream.SendMsg(&frame); err != nil {
-				errChan <- err
+				// Upstream send failed
+				errChan <- &UpstreamClosedError{Err: err}
 				return
 			}
 		}
 	}()
 
-	// Client -> Server (Response)
+	// Client -> Server (Response Pump)
 	go func() {
-		// Header handling
 		md, err := clientStream.Header()
 		if err == nil {
 			serverStream.SendHeader(md)
 		}
-
 		for {
 			var frame []byte
 			if err := clientStream.RecvMsg(&frame); err != nil {
 				if err != io.EOF {
-					errChan <- err
+					errChan <- &UpstreamClosedError{Err: err}
 				} else {
-					// Finish stream trailer
+					// Upstream closed cleanly (EOF)
 					serverStream.SetTrailer(clientStream.Trailer())
-					errChan <- nil
+					// This counts as upstream closing the session?
+					// Strictly, YES. If upstream finishes, the call is done.
+					// If this is the main Bazel command channel, and it finishes... does it mean shutdown?
+					// Usually yes.
+					errChan <- &UpstreamClosedError{Err: io.EOF}
 				}
 				return
 			}
-
 			if err := serverStream.SendMsg(&frame); err != nil {
-				errChan <- err
+				errChan <- err // Downstream error
 				return
 			}
 		}

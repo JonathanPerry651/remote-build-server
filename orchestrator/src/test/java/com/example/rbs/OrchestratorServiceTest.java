@@ -23,11 +23,12 @@ public class OrchestratorServiceTest {
         ComputeService computeService = mock(ComputeService.class);
 
         // Simulate existing session found
-        SessionRepository.BuildSession session = new SessionRepository.BuildSession("session123", "10.0.0.1", "READY");
-        when(sessionRepo.getSession(anyString(), anyString())).thenReturn(session);
+        SessionRepository.BuildSession session = new SessionRepository.BuildSession("testuser", "hash", "session123",
+                "10.0.0.1", "READY", System.currentTimeMillis());
+        when(sessionRepo.getSession(anyString())).thenReturn(session);
 
         ComputeService.ContainerStatus containerStatus = new ComputeService.ContainerStatus("READY", "10.0.0.1");
-        when(computeService.getContainerStatus(anyString(), anyString())).thenReturn(containerStatus);
+        when(computeService.getContainerStatus(anyString(), anyString(), anyString())).thenReturn(containerStatus);
 
         OrchestratorService service = new OrchestratorService(sessionRepo, computeService);
 

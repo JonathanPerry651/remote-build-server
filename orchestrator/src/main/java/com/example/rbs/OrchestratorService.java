@@ -2,6 +2,8 @@ package com.example.rbs;
 
 import com.example.rbs.proto.GetServerRequest;
 import com.example.rbs.proto.GetServerResponse;
+import com.example.rbs.proto.HeartbeatRequest;
+import com.example.rbs.proto.HeartbeatResponse;
 import com.example.rbs.proto.OrchestratorGrpc;
 import com.google.cloud.spanner.DatabaseClient;
 import com.google.cloud.spanner.ResultSet;
@@ -9,6 +11,9 @@ import com.google.cloud.spanner.Statement;
 import com.google.cloud.spanner.TransactionContext;
 import com.google.cloud.spanner.TransactionRunner;
 import io.grpc.stub.StreamObserver;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
@@ -16,56 +21,48 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
 
   private final SessionRepository sessionRepo;
   private final ComputeService computeService;
+  private final ScheduledExecutorService reaperExecutor;
 
   public OrchestratorService(SessionRepository sessionRepo, ComputeService computeService) {
     this.sessionRepo = sessionRepo;
     this.computeService = computeService;
+    this.reaperExecutor = Executors.newSingleThreadScheduledExecutor();
+    this.reaperExecutor.scheduleAtFixedRate(this::reapStaleSessions, 1, 1, TimeUnit.MINUTES);
   }
 
   @Override
   public void getServer(GetServerRequest request, StreamObserver<GetServerResponse> responseObserver) {
     String userId = request.getUserId();
     String repoHash = request.getRepoHash();
-    String clientSessionId = request.getSessionId(); // Optional, from client
+    String clientSessionId = request.getSessionId(); // From client (Proxy)
     String sourcePath = request.getSourcePath();
     String region = request.getRegion();
 
     logger.info(
-        "Received GetServer request for User: " + userId + ", Repo: " + repoHash + " (Source: " + sourcePath + ")");
+        "Received GetServer request for User: " + userId + ", Repo: " + repoHash + " (Session: " + clientSessionId
+            + ")");
 
     try {
-      // 1. Check if a session already exists for this User/Repo
-      SessionRepository.BuildSession session = sessionRepo.getSession(userId, repoHash);
+      if (clientSessionId.isEmpty()) {
+        // Should not happen for new Proxy logic, but strictly if missing we could gen
+        // one.
+        // But strict mirroring requires client to own identity.
+        logger.warning("Missing sessionId in request");
+        responseObserver
+            .onError(io.grpc.Status.INVALID_ARGUMENT.withDescription("SessionId required").asRuntimeException());
+        return;
+      }
+
+      SessionRepository.BuildSession session = sessionRepo.getSession(clientSessionId);
 
       if (session != null) {
         // Session exists.
-        // If client provided a specific session ID, check if it matches.
-        // If mismatch (and client session ID provided), it implies a new session is
-        // desired -> Recreate.
-        // If client session ID is empty (initial request), we return existing if valid.
-
-        boolean sessionMismatch = !clientSessionId.isEmpty()
-            && !clientSessionId.equals(session.sessionId);
-
-        if (sessionMismatch) {
-          logger.info("Session mismatch (Client: " + clientSessionId + ", DB: " + session.sessionId + "). Recreating.");
-          // Delete old resources
-          computeService.deleteContainer(userId, repoHash);
-
-          // Create new flow
-          handleNewSession(userId, repoHash, clientSessionId, sourcePath, request.getStartupOptionsList(), region,
-              responseObserver);
-          return;
-        } else {
-          // Match or client didn't specify. Return status.
-          // Check actual status of pod.
-          checkAndUpdateStatus(userId, repoHash, session, responseObserver);
-          return;
-        }
+        // Check actual status of pod.
+        checkAndUpdateStatus(userId, repoHash, session, responseObserver);
+        return;
       } else {
-        // No session exists. Create new.
-        handleNewSession(userId, repoHash,
-            !clientSessionId.isEmpty() ? clientSessionId : java.util.UUID.randomUUID().toString(), sourcePath,
+        // No session exists for this SessionID. Create new.
+        handleNewSession(userId, repoHash, clientSessionId, sourcePath,
             request.getStartupOptionsList(), region, responseObserver);
         return;
       }
@@ -78,7 +75,7 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
   private void handleNewSession(String userId, String repoHash, String sessionId, String sourcePath,
       java.util.List<String> startupOptions, String region, StreamObserver<GetServerResponse> responseObserver) {
     // Create Pod
-    computeService.createContainer(userId, repoHash, sourcePath, startupOptions, region);
+    computeService.createContainer(userId, repoHash, sessionId, sourcePath, startupOptions, region);
 
     // Save session 'PENDING'
     sessionRepo.saveSession(userId, repoHash, sessionId, null, "PENDING");
@@ -93,13 +90,13 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
   private void checkAndUpdateStatus(String userId, String repoHash, SessionRepository.BuildSession session,
       StreamObserver<GetServerResponse> responseObserver) {
     // Verify against Compute Service
-    ComputeService.ContainerStatus status = computeService.getContainerStatus(userId, repoHash);
+    ComputeService.ContainerStatus status = computeService.getContainerStatus(userId, repoHash, session.sessionId);
 
     if (status == null) {
       // Pod missing?
       logger.warning("Pod missing for session " + session.sessionId);
       GetServerResponse response = GetServerResponse.newBuilder()
-          .setStatus("PENDING")
+          .setStatus("PENDING") // Or LOST? Client will retry or fail. PENDING makes sense if creating.
           .build();
       responseObserver.onNext(response);
       responseObserver.onCompleted();
@@ -120,6 +117,29 @@ public class OrchestratorService extends OrchestratorGrpc.OrchestratorImplBase {
 
     responseObserver.onNext(responseBuilder.build());
     responseObserver.onCompleted();
+  }
+
+  @Override
+  public void heartbeat(HeartbeatRequest request, StreamObserver<HeartbeatResponse> responseObserver) {
+    String sessionId = request.getSessionId();
+    sessionRepo.updateHeartbeat(sessionId);
+    responseObserver.onNext(HeartbeatResponse.newBuilder().build());
+    responseObserver.onCompleted();
+  }
+
+  void reapStaleSessions() {
+    try {
+      // 5 minutes stale threshold
+      long staleThreshold = 5 * 60 * 1000;
+      java.util.List<SessionRepository.BuildSession> staleSessions = sessionRepo.getStaleSessions(staleThreshold);
+      for (SessionRepository.BuildSession session : staleSessions) {
+        logger.info("Reaping stale session: " + session.sessionId + " (User: " + session.userId + ")");
+        computeService.deleteContainer(session.userId, session.repoHash, session.sessionId);
+        sessionRepo.deleteSession(session.sessionId);
+      }
+    } catch (Exception e) {
+      logger.severe("Error in reaper task: " + e.getMessage());
+    }
   }
 
   // --- DB Helpers moved to SessionRepository implementations ---

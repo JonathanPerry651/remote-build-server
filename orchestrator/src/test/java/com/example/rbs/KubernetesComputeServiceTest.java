@@ -25,13 +25,14 @@ public class KubernetesComputeServiceTest {
 
         String userId = "testUser";
         String repoHash = "abcdef123456";
+        String sessionId = "session123";
         String sourcePath = "/host/path/to/repo";
         List<String> startupOptions = Arrays.asList("--foo=bar");
 
-        String expectedNamespace = "testuser-rbs-abcdef123456";
+        String expectedNamespace = "testuser-rbs-abcdef123456-session1"; // truncated session
         String expectedSa = "sa-testuser";
 
-        String podName = service.createContainer(userId, repoHash, sourcePath, startupOptions, "us-west1");
+        String podName = service.createContainer(userId, repoHash, sessionId, sourcePath, startupOptions, "us-west1");
 
         // Check Namespace creation
         assertNotNull("Namespace should exist", client.namespaces().withName(expectedNamespace).get());
@@ -45,6 +46,8 @@ public class KubernetesComputeServiceTest {
         assertNotNull("Pod should exist in namespace " + expectedNamespace, pod);
         assertEquals("localhost/agent:latest", pod.getSpec().getContainers().get(0).getImage());
         assertEquals(expectedSa, pod.getSpec().getServiceAccountName());
+        assertEquals(expectedSa, pod.getSpec().getServiceAccountName()); // check duplication? No.
+        assertEquals("session123", pod.getMetadata().getLabels().get("session")); // Check label
         assertEquals("us-west1", pod.getMetadata().getAnnotations().get("rbs.region"));
 
         // Verify Volume

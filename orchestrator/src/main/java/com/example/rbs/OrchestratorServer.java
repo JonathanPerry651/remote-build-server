@@ -9,6 +9,7 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import java.io.IOException;
+import java.time.Clock;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -23,7 +24,7 @@ public class OrchestratorServer {
 
         if (localMode) {
             logger.info("Starting in LOCAL MODE (InMemory DB + Process Compute)");
-            sessionRepo = new InMemorySessionRepository();
+            sessionRepo = new InMemorySessionRepository(Clock.systemUTC());
             computeService = new ProcessComputeService();
         } else {
             // Initialize Spanner Client
@@ -74,7 +75,7 @@ public class OrchestratorServer {
 
             DatabaseId dbId = DatabaseId.of(projectId, instanceId, databaseId);
             DatabaseClient dbClient = spanner.getDatabaseClient(dbId);
-            sessionRepo = new SpannerSessionRepository(dbClient);
+            sessionRepo = new SpannerSessionRepository(dbClient, Clock.systemUTC());
 
             // Initialize Kubernetes Client
             KubernetesClient k8sClient = new KubernetesClientBuilder().build();
