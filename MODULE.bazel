@@ -96,7 +96,6 @@ oci.pull(
     tag = "17-jre",
 )
 use_repo(oci, "distroless_java")
-
 oci.pull(
     name = "distroless_static",
     image = "gcr.io/distroless/static",
@@ -116,11 +115,9 @@ go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
     "com_github_spf13_cobra",
-    "com_github_bazelbuild_bazelisk",
     "io_opentelemetry_go_otel",
     "io_opentelemetry_go_otel_exporters_stdout_stdouttrace",
     "io_opentelemetry_go_otel_sdk",
-    "io_opentelemetry_go_otel_trace",
     "org_golang_google_grpc",
     "org_golang_google_protobuf",
 )
